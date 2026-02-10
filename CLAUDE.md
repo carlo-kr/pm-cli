@@ -15,8 +15,10 @@ python3 -m pip install -e .
 # Run CLI (if not on PATH)
 /Library/Frameworks/Python.framework/Versions/3.12/bin/pm --version
 
-# Run tests (when added)
-pytest tests/
+# Run tests
+pytest tests/                         # All tests
+pytest tests/test_priority.py -v     # Priority algorithm tests
+pytest tests/ --cov=pm --cov-report=html  # With coverage
 ```
 
 ### Database Management
@@ -29,6 +31,69 @@ python3 -c "from pm.db import get_db_manager; print(get_db_manager().backup_db()
 
 # Reset database (for development)
 rm ~/.pm/pm.db && pm init
+```
+
+### Complete Command Reference
+
+#### Initialization
+```bash
+pm init                               # Initialize DB and scan workspace
+pm init --workspace /path/to/dir      # Scan custom directory
+```
+
+#### Project Management
+```bash
+pm projects                           # List all projects
+pm projects --status active           # Filter by status
+pm projects --sort priority           # Sort by priority/activity/name
+pm project add /path/to/project       # Add new project
+pm project show EarnScreen            # Show project details
+pm project update EarnScreen --priority 95 --status active
+```
+
+#### Goal Management
+```bash
+pm goals                              # List all goals
+pm goals EarnScreen                   # List goals for project
+pm goals --status active              # Filter by status
+pm goals --priority-min 70            # Filter by minimum priority
+
+pm goal add EarnScreen "Complete MVP" \
+  --category feature \
+  --priority 90 \
+  --target 2026-03-01 \
+  --description "Full description here"
+
+pm goal show 1                        # Show goal details with progress
+pm goal update 1 --status completed   # Update goal properties
+```
+
+#### Todo Management
+```bash
+pm todos                              # List all open/in_progress todos
+pm todos EarnScreen                   # List todos for project
+pm todos --next                       # Top 5 by priority
+pm todos --blocked                    # Show blocked todos
+pm todos --status completed           # Show completed todos
+pm todos --goal 1                     # Filter by goal
+
+pm todo add EarnScreen "Fix auth bug" \
+  --goal 1 \
+  --effort M \
+  --due 2026-02-15 \
+  --description "Detailed description" \
+  --tags "bug,urgent"
+
+pm todo show 5                        # Show todo details
+pm todo start 5                       # Mark as in_progress (1.2x priority)
+pm todo complete 5                    # Mark as completed
+pm todo block 3 --by 5                # Mark todo 3 as blocked by todo 5
+```
+
+#### Priority Management
+```bash
+pm prioritize                         # Recalculate all priorities
+pm prioritize EarnScreen              # Recalculate for specific project
 ```
 
 ## Architecture
@@ -71,13 +136,18 @@ rm ~/.pm/pm.db && pm init
 - [x] Configuration management (~/.pm/config.json)
 - [x] Workspace scanning with project detection
 
-### Phase 2: Goals & Todos (Next)
-- [ ] Goal CRUD operations
-- [ ] Todo CRUD operations
-- [ ] Basic priority scoring algorithm
-- [ ] Interactive todo picker with questionary
-- [ ] Filtering and sorting for goals/todos
-- [ ] Activity logging for changes
+### Phase 2: Goals & Todos ✅ (Complete)
+- [x] Goal CRUD operations (add, list, show, update)
+- [x] Todo CRUD operations (add, list, show, start, complete, block)
+- [x] Multi-factor priority scoring algorithm
+- [x] Filtering and sorting for goals/todos
+- [x] Status management (open, in_progress, blocked, completed)
+- [x] Effort estimation (S/M/L/XL) with quick-win scoring
+- [x] Deadline tracking with urgency calculation
+- [x] Blocking relationships between todos
+- [x] Automatic priority recalculation
+- [ ] Interactive todo picker with questionary (deferred to Phase 5)
+- [ ] Activity logging for changes (deferred to Phase 4)
 
 ### Phase 3: Git Integration
 - [ ] GitPython commit scanning
@@ -168,12 +238,18 @@ Default config (~/.pm/config.json):
 - [x] `pm project update EarnScreen --priority 95` - Updates project properties
 - [x] Projects sorted by priority correctly
 
-**Phase 2 Tests (TODO):**
-- [ ] Create goal for project
-- [ ] List goals with filtering
-- [ ] Create todo linked to goal
-- [ ] Priority scoring calculation
-- [ ] Interactive todo picker
+✅ **Phase 2 Tests:**
+- [x] `pm goal add EarnScreen "Complete App Store submission"` - Creates goal with priority 95
+- [x] `pm goals` - Lists all goals with colored categories and status
+- [x] `pm goal show 1` - Shows goal details with progress (1 completed / 2 total todos)
+- [x] `pm todo add EarnScreen "Write app description" --effort S --due 2026-02-12` - Creates todo with priority score 71.5
+- [x] `pm todos --next` - Shows top 5 prioritized todos
+- [x] `pm todo start 2` - Marks todo as in_progress, priority increased to 85.8 (1.2x boost)
+- [x] `pm todo complete 2` - Marks todo as completed
+- [x] `pm todo block 1 --by 3` - Marks todo as blocked, priority reduced to 33.2 (0.5x reduction)
+- [x] `pm todos --blocked` - Shows blocked todos
+- [x] Priority scoring validates: effort (S>M>L>XL), deadlines (closer=higher), age (older=higher)
+- [x] 16 unit tests passing (models, utils, priority algorithm)
 
 ## Next Steps
 

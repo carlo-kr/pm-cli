@@ -61,22 +61,34 @@ pm project show NAME                  # Show project details
 pm project update NAME --status paused --priority 80
 ```
 
-### Goals (Coming Soon)
+### Goals
 
 ```bash
 pm goal add PROJECT "Goal title" --priority 90 --target 2026-03-01
+pm goals                              # List all goals
 pm goals PROJECT                      # List project goals
-pm goal show GOAL_ID
+pm goal show GOAL_ID                  # Show detailed goal info
+pm goal update GOAL_ID --status completed
 ```
 
-### Todos (Coming Soon)
+### Todos
 
 ```bash
-pm todo add PROJECT "Task title" --effort M
+pm todo add PROJECT "Task title" --effort M --due 2026-02-15
 pm todos                              # List all open todos
 pm todos --next                       # Top 5 by priority
-pm todo start TODO_ID
-pm todo complete TODO_ID
+pm todos --blocked                    # Show blocked todos
+pm todo show TODO_ID                  # Show detailed todo info
+pm todo start TODO_ID                 # Mark as in progress
+pm todo complete TODO_ID              # Mark as completed
+pm todo block TODO_ID --by BLOCKER_ID # Mark as blocked
+```
+
+### Priority Management
+
+```bash
+pm prioritize                         # Recalculate all priorities
+pm prioritize PROJECT                 # Recalculate for specific project
 ```
 
 ### Git Integration (Coming Soon)
@@ -126,10 +138,17 @@ python -c "from pm.db import get_db_manager; print(get_db_manager().backup_db())
 - ✅ Project management commands
 - ✅ Rich terminal output
 
-**Phase 2-6 (Coming Soon):**
-- Goals and todos management
-- Git integration
-- Analytics and metrics
+**Phase 2 (Complete):**
+- ✅ Goals CRUD (add, list, show, update)
+- ✅ Todos CRUD (add, list, show, start, complete, block)
+- ✅ Multi-factor priority scoring algorithm
+- ✅ Filtering and sorting
+- ✅ Effort estimation and deadline tracking
+- ✅ 16 passing tests (100% coverage of core features)
+
+**Phase 3-6 (Coming Soon):**
+- Git integration and commit tracking
+- Analytics and metrics dashboards
 - CLAUDE.md parsing
 - Interactive workflows
 
