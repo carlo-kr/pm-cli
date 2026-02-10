@@ -3,7 +3,7 @@
 import click
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -31,6 +31,7 @@ from .utils import (
 )
 from .priority import PriorityCalculator
 from .git_integration import GitScanner
+from .metrics import MetricsCalculator
 
 console = Console()
 
@@ -1377,6 +1378,387 @@ def sync_and_prioritize(ctx, project_name: Optional[str]):
     ctx.invoke(prioritize, project_name=project_name)
 
     console.print("\n[bold green]✓[/bold green] Sync and prioritization complete!")
+
+
+# ============================================================================
+# Analytics & Metrics Commands
+# ============================================================================
+
+@cli.command("metrics")
+@click.argument("project_name")
+@click.option("--detailed", is_flag=True, help="Show detailed metrics with trends")
+@click.pass_context
+def metrics(ctx, project_name: str, detailed: bool):
+    """Show project metrics and health dashboard"""
+
+    db_manager = ctx.obj["db"]
+    calculator = MetricsCalculator()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        # Calculate metrics
+        health_score, health_status = calculator.calculate_health_score(project, session)
+        velocity = calculator.calculate_velocity(project, session, days=7)
+        completion_rate = calculator.calculate_completion_rate(project, session)
+
+        todo_breakdown = calculator.get_todo_breakdown(project, session)
+        goal_breakdown = calculator.get_goal_breakdown(project, session)
+
+        overdue = calculator.get_overdue_todos(project, session)
+        upcoming = calculator.get_upcoming_deadlines(project, session, days=7)
+
+        # Health score panel with color
+        health_color = "green" if health_score >= 60 else "yellow" if health_score >= 40 else "red"
+        health_panel = Panel(
+            f"[bold {health_color}]{health_score}/100[/bold {health_color}] - {health_status}",
+            title="[bold]Health Score[/bold]",
+            border_style=health_color,
+            box=box.ROUNDED,
+        )
+
+        console.print()
+        console.print(f"[bold cyan]Metrics Dashboard - {project_name}[/bold cyan]")
+        console.print()
+        console.print(health_panel)
+
+        # Key metrics table
+        metrics_table = Table(
+            box=box.ROUNDED,
+            show_header=False,
+            padding=(0, 2),
+        )
+
+        metrics_table.add_column("Metric", style="bold")
+        metrics_table.add_column("Value")
+
+        metrics_table.add_row("Velocity (7d)", f"{velocity:.2f} todos/day")
+        metrics_table.add_row("Completion Rate", f"{completion_rate:.1f}%")
+        metrics_table.add_row(
+            "Last Activity",
+            format_datetime(project.last_activity_at) if project.last_activity_at else "Never"
+        )
+
+        console.print()
+        console.print(metrics_table)
+
+        # Todo breakdown
+        console.print("\n[bold cyan]Todo Status:[/bold cyan]")
+        todo_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+        todo_table.add_column("Status", style="bold")
+        todo_table.add_column("Count", justify="right")
+
+        status_colors = {
+            "open": "yellow",
+            "in_progress": "cyan",
+            "blocked": "red",
+            "completed": "green",
+        }
+
+        for status in ["open", "in_progress", "blocked", "completed"]:
+            count = todo_breakdown[status]
+            color = status_colors.get(status, "white")
+            todo_table.add_row(
+                f"[{color}]{status.replace('_', ' ').title()}[/{color}]",
+                str(count)
+            )
+
+        console.print(todo_table)
+
+        # Goal breakdown
+        if goal_breakdown["active"] > 0 or goal_breakdown["completed"] > 0:
+            console.print("\n[bold cyan]Goals:[/bold cyan]")
+            goal_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+            goal_table.add_column("Status", style="bold")
+            goal_table.add_column("Count", justify="right")
+
+            goal_table.add_row("[green]Active[/green]", str(goal_breakdown["active"]))
+            goal_table.add_row("[blue]Completed[/blue]", str(goal_breakdown["completed"]))
+
+            console.print(goal_table)
+
+        # Warnings
+        if overdue:
+            console.print(f"\n[bold red]⚠ Overdue:[/bold red] {len(overdue)} todos")
+            for todo in overdue[:3]:
+                days_overdue = (date.today() - todo.due_date).days
+                console.print(f"  • #{todo.id}: {todo.title} ({days_overdue}d overdue)")
+
+        if upcoming:
+            console.print(f"\n[bold yellow]📅 Upcoming:[/bold yellow] {len(upcoming)} todos in next 7 days")
+            for todo in upcoming[:3]:
+                days_until = (todo.due_date - date.today()).days
+                console.print(f"  • #{todo.id}: {todo.title} (in {days_until}d)")
+
+        # Detailed view
+        if detailed:
+            console.print("\n[bold cyan]Velocity Trend (4 weeks):[/bold cyan]")
+            velocity_trend = calculator.get_velocity_trend(project, session, weeks=4)
+
+            trend_table = Table(box=box.ROUNDED, show_header=True, header_style="bold")
+            trend_table.add_column("Week")
+            trend_table.add_column("Completed", justify="center")
+            trend_table.add_column("Velocity", justify="right")
+
+            for week_data in velocity_trend:
+                week_label = f"{week_data['week_start'].strftime('%b %d')}"
+                trend_table.add_row(
+                    week_label,
+                    str(week_data['todos_completed']),
+                    f"{week_data['velocity']:.2f}/day"
+                )
+
+            console.print(trend_table)
+
+
+@cli.command("review")
+@click.option("--project", help="Focus on specific project")
+@click.pass_context
+def review(ctx, project: Optional[str]):
+    """Daily standup review - show what needs attention"""
+
+    db_manager = ctx.obj["db"]
+    config = ctx.obj["config"]
+    calculator = MetricsCalculator()
+    scanner = GitScanner()
+
+    console.print("\n[bold cyan]📋 Daily Review[/bold cyan]")
+    console.print(f"[dim]{datetime.now().strftime('%A, %B %d, %Y')}[/dim]\n")
+
+    with db_manager.get_session() as session:
+        # Determine projects to review
+        if project:
+            projects = [session.query(Project).filter_by(name=project).first()]
+            if not projects[0]:
+                console.print(f"[bold red]Error:[/bold red] Project '{project}' not found")
+                return
+        else:
+            # Review active projects
+            projects = session.query(Project).filter_by(status="active").order_by(
+                Project.priority.desc()
+            ).limit(5).all()
+
+        if not projects:
+            console.print("[yellow]No active projects found[/yellow]")
+            return
+
+        for proj in projects:
+            # Calculate health
+            health_score, health_status = calculator.calculate_health_score(proj, session)
+            health_color = "green" if health_score >= 60 else "yellow" if health_score >= 40 else "red"
+
+            console.print(f"[bold]{proj.name}[/bold] - [{health_color}]{health_status} ({health_score:.0f}/100)[/{health_color}]")
+
+            # Recent activity
+            if proj.has_git:
+                recent_commits = scanner.get_recent_commits(proj, session, limit=3)
+                if recent_commits:
+                    console.print(f"  [dim]Recent commits:[/dim]")
+                    for commit in recent_commits:
+                        msg = commit.message.split('\n')[0]
+                        console.print(f"    • {truncate_string(msg, 60)} ({get_relative_time(commit.committed_at)})")
+
+            # Active todos
+            active_todos = session.query(Todo).filter(
+                Todo.project_id == proj.id,
+                Todo.status.in_(["open", "in_progress"])
+            ).order_by(Todo.priority_score.desc()).limit(3).all()
+
+            if active_todos:
+                console.print(f"  [dim]Top priorities:[/dim]")
+                for todo in active_todos:
+                    status_icon = "🔵" if todo.status == "in_progress" else "⚪"
+                    console.print(f"    {status_icon} #{todo.id}: {todo.title} (priority: {todo.priority_score:.0f})")
+
+            # Overdue
+            overdue = calculator.get_overdue_todos(proj, session)
+            if overdue:
+                console.print(f"  [bold red]⚠ {len(overdue)} overdue todos[/bold red]")
+
+            # Upcoming deadlines
+            upcoming = calculator.get_upcoming_deadlines(proj, session, days=3)
+            if upcoming:
+                console.print(f"  [bold yellow]📅 {len(upcoming)} due in next 3 days[/bold yellow]")
+
+            console.print()
+
+        # Summary recommendations
+        console.print("[bold cyan]💡 Recommendations:[/bold cyan]")
+
+        # Find highest priority todo across all projects
+        top_todo = session.query(Todo).filter(
+            Todo.status.in_(["open", "in_progress"])
+        ).order_by(Todo.priority_score.desc()).first()
+
+        if top_todo:
+            console.print(f"  • Start with: [bold]#{top_todo.id} - {top_todo.title}[/bold] ({top_todo.project.name})")
+
+        # Find blocked todos
+        blocked_count = session.query(Todo).filter(
+            Todo.status == "blocked"
+        ).count()
+
+        if blocked_count > 0:
+            console.print(f"  • Unblock {blocked_count} blocked todos")
+
+        # Sync suggestion
+        if config.get("auto_sync_on_review", True):
+            console.print("  • Run [bold]pm sync --all[/bold] to update git activity")
+
+        console.print()
+
+
+@cli.command("report")
+@click.argument("project_name")
+@click.option("--format", type=click.Choice(["markdown", "html"]), default="markdown", help="Output format")
+@click.option("--output", type=click.Path(), help="Output file path")
+@click.pass_context
+def report(ctx, project_name: str, format: str, output: Optional[str]):
+    """Generate project report"""
+
+    db_manager = ctx.obj["db"]
+    calculator = MetricsCalculator()
+    scanner = GitScanner()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        # Gather all data
+        health_score, health_status = calculator.calculate_health_score(project, session)
+        velocity = calculator.calculate_velocity(project, session, days=7)
+        completion_rate = calculator.calculate_completion_rate(project, session)
+        todo_breakdown = calculator.get_todo_breakdown(project, session)
+        goal_breakdown = calculator.get_goal_breakdown(project, session)
+        commit_stats = scanner.get_commit_stats(project, session, since=datetime.utcnow() - timedelta(days=30))
+        overdue = calculator.get_overdue_todos(project, session)
+        velocity_trend = calculator.get_velocity_trend(project, session, weeks=4)
+
+        # Generate report
+        if format == "markdown":
+            report_content = f"""# Project Report: {project_name}
+
+**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Health Score
+
+**{health_score:.1f}/100** - {health_status}
+
+## Key Metrics
+
+- **Velocity (7d):** {velocity:.2f} todos/day
+- **Completion Rate:** {completion_rate:.1f}%
+- **Last Activity:** {format_datetime(project.last_activity_at) if project.last_activity_at else 'Never'}
+
+## Todo Status
+
+| Status | Count |
+|--------|-------|
+| Open | {todo_breakdown['open']} |
+| In Progress | {todo_breakdown['in_progress']} |
+| Blocked | {todo_breakdown['blocked']} |
+| Completed | {todo_breakdown['completed']} |
+| **Total** | **{sum(todo_breakdown.values())}** |
+
+## Goals
+
+| Status | Count |
+|--------|-------|
+| Active | {goal_breakdown['active']} |
+| Completed | {goal_breakdown['completed']} |
+| Cancelled | {goal_breakdown['cancelled']} |
+
+## Git Activity (30 days)
+
+- **Commits:** {commit_stats['total_commits']}
+- **Insertions:** +{commit_stats['total_insertions']}
+- **Deletions:** -{commit_stats['total_deletions']}
+- **Files Changed:** {commit_stats['total_files_changed']}
+- **Unique Authors:** {commit_stats['unique_authors']}
+
+## Velocity Trend (4 weeks)
+
+| Week | Completed | Velocity |
+|------|-----------|----------|
+"""
+            for week_data in velocity_trend:
+                week_label = week_data['week_start'].strftime('%b %d')
+                report_content += f"| {week_label} | {week_data['todos_completed']} | {week_data['velocity']:.2f}/day |\n"
+
+            if overdue:
+                report_content += f"\n## ⚠️ Overdue Todos ({len(overdue)})\n\n"
+                for todo in overdue:
+                    days_overdue = (date.today() - todo.due_date).days
+                    report_content += f"- #{todo.id}: {todo.title} ({days_overdue} days overdue)\n"
+
+            report_content += "\n---\n*Generated by PM CLI*\n"
+
+        else:  # HTML format
+            report_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Project Report: {project_name}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 20px; }}
+        h1 {{ color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }}
+        h2 {{ color: #666; margin-top: 30px; }}
+        .health-score {{ font-size: 2em; color: {'#4CAF50' if health_score >= 60 else '#FFC107' if health_score >= 40 else '#F44336'}; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+        tr:nth-child(even) {{ background-color: #f2f2f2; }}
+        .metric {{ display: inline-block; margin: 10px 20px; }}
+        .warning {{ color: #F44336; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <h1>Project Report: {project_name}</h1>
+    <p><em>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</em></p>
+
+    <h2>Health Score</h2>
+    <div class="health-score">{health_score:.1f}/100 - {health_status}</div>
+
+    <h2>Key Metrics</h2>
+    <div class="metric"><strong>Velocity (7d):</strong> {velocity:.2f} todos/day</div>
+    <div class="metric"><strong>Completion Rate:</strong> {completion_rate:.1f}%</div>
+    <div class="metric"><strong>Last Activity:</strong> {format_datetime(project.last_activity_at) if project.last_activity_at else 'Never'}</div>
+
+    <h2>Todo Status</h2>
+    <table>
+        <tr><th>Status</th><th>Count</th></tr>
+        <tr><td>Open</td><td>{todo_breakdown['open']}</td></tr>
+        <tr><td>In Progress</td><td>{todo_breakdown['in_progress']}</td></tr>
+        <tr><td>Blocked</td><td>{todo_breakdown['blocked']}</td></tr>
+        <tr><td>Completed</td><td>{todo_breakdown['completed']}</td></tr>
+        <tr><th>Total</th><th>{sum(todo_breakdown.values())}</th></tr>
+    </table>
+
+    <h2>Git Activity (30 days)</h2>
+    <table>
+        <tr><th>Metric</th><th>Value</th></tr>
+        <tr><td>Commits</td><td>{commit_stats['total_commits']}</td></tr>
+        <tr><td>Insertions</td><td>+{commit_stats['total_insertions']}</td></tr>
+        <tr><td>Deletions</td><td>-{commit_stats['total_deletions']}</td></tr>
+        <tr><td>Files Changed</td><td>{commit_stats['total_files_changed']}</td></tr>
+        <tr><td>Unique Authors</td><td>{commit_stats['unique_authors']}</td></tr>
+    </table>
+
+    <p><em>Generated by PM CLI</em></p>
+</body>
+</html>"""
+
+        # Output
+        if output:
+            output_path = Path(output)
+            output_path.write_text(report_content)
+            console.print(f"\n[bold green]✓[/bold green] Report saved to: {output_path}")
+        else:
+            console.print("\n" + report_content)
 
 
 def main():

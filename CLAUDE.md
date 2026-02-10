@@ -115,6 +115,19 @@ pm sync-and-prioritize                # Sync + recalculate (daily workflow)
 pm sync-and-prioritize EarnScreen     # For specific project
 ```
 
+#### Analytics & Dashboards
+```bash
+pm metrics EarnScreen                 # Show metrics dashboard
+pm metrics EarnScreen --detailed      # Include velocity trends
+
+pm review                             # Daily standup review (top 5 projects)
+pm review --project EarnScreen        # Focus on specific project
+
+pm report EarnScreen                  # Generate markdown report (stdout)
+pm report EarnScreen --format html --output report.html
+pm report EarnScreen --format markdown --output report.md
+```
+
 ## Architecture
 
 | Component | Technology | Purpose |
@@ -180,13 +193,20 @@ pm sync-and-prioritize EarnScreen     # For specific project
 - [x] Project last_activity_at tracking
 - [x] `pm sync-and-prioritize` workflow command
 
-### Phase 4: Analytics & Dashboards
-- [ ] Metrics calculator with time-series tracking
-- [ ] `pm metrics` dashboard with Rich visualizations
-- [ ] Trend analysis (velocity, health scores)
-- [ ] `pm review` command (daily standup helper)
-- [ ] Report generation (markdown, HTML)
-- [ ] Enhanced priority algorithm with git activity
+### Phase 4: Analytics & Dashboards ✅ (Complete)
+- [x] Metrics calculator with comprehensive analytics (MetricsCalculator class)
+- [x] `pm metrics` dashboard with Rich visualizations
+- [x] Health score calculation (0-100 with status labels)
+- [x] Velocity tracking (todos/day over time)
+- [x] Completion rate calculation
+- [x] Velocity trend analysis (4-week rolling)
+- [x] Burn-down tracking for goals
+- [x] Todo/goal breakdown by status
+- [x] Overdue and upcoming deadline tracking
+- [x] `pm review` command (daily standup helper with top priorities)
+- [x] Report generation (markdown and HTML formats)
+- [x] Detailed metrics view with trends
+- [x] Project health status indicators
 
 ### Phase 5: Advanced Features
 - [ ] CLAUDE.md parsing and automatic import
@@ -285,6 +305,18 @@ Default config (~/.pm/config.json):
 - [x] Todo references parsed: #T42, #42, fixes #42, closes #42, resolves #42, todo: #42
 - [x] Completion keywords work: fix, fixes, close, closes, resolve, resolves, complete, completes
 - [x] 13 new unit tests passing (git integration, commit parsing, stats)
+
+✅ **Phase 4 Tests:**
+- [x] `pm metrics EarnScreen` - Shows health score (66.3/100 - Good), velocity, completion rate
+- [x] `pm metrics EarnScreen --detailed` - Shows velocity trend over 4 weeks
+- [x] `pm review` - Daily standup with top 5 projects, priorities, and recommendations
+- [x] `pm report EarnScreen --format markdown` - Generates comprehensive markdown report
+- [x] `pm report EarnScreen --format html --output report.html` - Generates HTML report
+- [x] Health score factors: activity, completion rate, overdue, blocked, goal progress
+- [x] Velocity calculation: 0.14 todos/day for EarnScreen
+- [x] Todo/goal breakdowns by status displayed correctly
+- [x] Overdue and upcoming deadline warnings shown
+- [x] 13 new unit tests passing (velocity, health score, breakdowns, trends)
 
 ## Next Steps
 

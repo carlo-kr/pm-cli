@@ -109,13 +109,24 @@ Reference todos in commit messages to auto-link:
 - `#T42` or `#42` - Links commit to todo
 - `fixes #42`, `closes #42`, `resolves #42`, `completes #42` - Links and auto-completes todo
 
-### Analytics (Coming Soon)
+### Analytics & Dashboards
 
 ```bash
-pm metrics PROJECT                    # Show project metrics
-pm review                             # Daily standup helper
-pm prioritize                         # Recalculate all priorities
+pm metrics PROJECT                    # Show metrics dashboard
+pm metrics PROJECT --detailed         # Include velocity trends
+pm review                             # Daily standup review
+pm review --project PROJECT           # Focus on specific project
+pm report PROJECT --format markdown   # Generate markdown report
+pm report PROJECT --format html --output report.html
 ```
+
+**Metrics Tracked:**
+- Health score (0-100) with status labels
+- Velocity (todos/day) over time
+- Completion rate percentage
+- Todo/goal breakdowns by status
+- Overdue and upcoming deadlines
+- 4-week velocity trends
 
 ## Configuration
 
@@ -165,10 +176,19 @@ python -c "from pm.db import get_db_manager; print(get_db_manager().backup_db())
 - ✅ Project activity tracking
 - ✅ 29 passing tests (13 new git integration tests)
 
-**Phase 4-6 (Coming Soon):**
-- Analytics dashboards and metrics
-- CLAUDE.md parsing and import
-- Interactive workflows and daily standup helpers
+**Phase 4 (Complete):**
+- ✅ Comprehensive metrics calculator
+- ✅ Health score tracking (multi-factor 0-100 scale)
+- ✅ Velocity tracking and trend analysis
+- ✅ Daily standup review workflow
+- ✅ Report generation (markdown/HTML)
+- ✅ Burn-down tracking for goals
+- ✅ 42 passing tests (13 new metrics tests)
+
+**Phase 5-6 (Coming Soon):**
+- CLAUDE.md parsing and automatic import
+- Interactive workflows (pm start, pm plan)
+- Export/import for backup
 
 ## Tech Stack
 
