@@ -14,12 +14,35 @@ A language-agnostic CLI tool for managing project goals, todos, and priorities a
 
 ## Installation
 
+### Basic Installation
+
 ```bash
 cd ~/Building/Experiments/pm
 pip install -e .
 ```
 
 After installation, the `pm` command will be available globally.
+
+### Shell Completion (Optional)
+
+**Bash:**
+```bash
+# Copy completion script
+sudo cp completions/pm-completion.bash /etc/bash_completion.d/
+
+# Or source in ~/.bashrc
+echo "source $(pwd)/completions/pm-completion.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Zsh:**
+```bash
+# Copy to zsh completions directory
+sudo cp completions/pm-completion.zsh /usr/local/share/zsh/site-functions/_pm
+
+# Reload completions
+rm -f ~/.zcompdump; compinit
+```
 
 ## Quick Start
 
@@ -128,6 +151,34 @@ pm report PROJECT --format html --output report.html
 - Overdue and upcoming deadlines
 - 4-week velocity trends
 
+### CLAUDE.md Integration
+
+```bash
+pm import-claude-md PROJECT           # Import goals from CLAUDE.md
+pm import-claude-md PROJECT --auto-import  # Auto-import without confirmation
+```
+
+**What gets imported:**
+- Goals from Next Steps, TODO, Roadmap, Planned Features sections
+- Categories automatically inferred (feature/bugfix/refactor/docs/ops)
+- Priorities suggested based on keywords (critical, urgent, important)
+
+### Interactive Workflows
+
+```bash
+pm start                              # Pick project → pick todo → start
+pm plan PROJECT                       # Interactive goal planning wizard
+pm standup                            # Daily standup workflow
+```
+
+### Export & Backup
+
+```bash
+pm export PROJECT --output FILE       # Export project to JSON
+pm backup                             # Backup all projects
+pm backup --output DIR                # Custom backup directory
+```
+
 ## Configuration
 
 Configuration is stored in `~/.pm/config.json`. Default settings:
@@ -185,10 +236,21 @@ python -c "from pm.db import get_db_manager; print(get_db_manager().backup_db())
 - ✅ Burn-down tracking for goals
 - ✅ 42 passing tests (13 new metrics tests)
 
-**Phase 5-6 (Coming Soon):**
-- CLAUDE.md parsing and automatic import
-- Interactive workflows (pm start, pm plan)
-- Export/import for backup
+**Phase 5 (Complete):**
+- ✅ CLAUDE.md parsing and automatic import
+- ✅ Interactive workflows (pm start, pm plan, pm standup)
+- ✅ Export/import for backup (JSON format)
+- ✅ Intelligent category inference and priority suggestion
+- ✅ 56 passing tests (14 new CLAUDE.md tests)
+
+**Phase 6 (Complete):**
+- ✅ GitHub Actions CI/CD (test, lint, build)
+- ✅ Multi-OS and multi-Python version testing
+- ✅ Shell completion scripts (bash and zsh)
+- ✅ Comprehensive tutorial documentation
+- ✅ Contributing guidelines
+- ✅ MIT License
+- ✅ Package ready for distribution
 
 ## Tech Stack
 
@@ -198,7 +260,28 @@ python -c "from pm.db import get_db_manager; print(get_db_manager().backup_db())
 - **Rich** - Beautiful terminal output
 - **GitPython** - Git integration
 - **Pydantic** - Data validation
+- **Questionary** - Interactive prompts
+
+## Documentation
+
+- **[Tutorial](TUTORIAL.md)** - Comprehensive guide with examples
+- **[Contributing](.github/CONTRIBUTING.md)** - Contribution guidelines
+- **[Changelog](CHANGELOG.md)** - Version history
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md) for:
+- Development setup
+- Code style guidelines
+- Testing requirements
+- Pull request process
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/pm-cli/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/pm-cli/discussions)
+- **Tutorial**: See [TUTORIAL.md](TUTORIAL.md) for detailed usage examples
 
 ## License
 
-MIT
+MIT - See [LICENSE](LICENSE) for details
