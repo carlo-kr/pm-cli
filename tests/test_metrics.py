@@ -28,7 +28,7 @@ def sample_project(db_session):
         path="/test/path",
         priority=70,
         has_git=True,
-        last_activity_at=datetime.utcnow()
+        last_activity_at=datetime.utcnow(),
     )
     db_session.add(project)
     db_session.commit()
@@ -55,7 +55,7 @@ def test_calculate_velocity_with_completed_todos(calculator, sample_project, db_
             project_id=sample_project.id,
             title=f"Todo {i}",
             status="completed",
-            completed_at=datetime.utcnow() - timedelta(days=i)
+            completed_at=datetime.utcnow() - timedelta(days=i),
         )
         db_session.add(todo)
 
@@ -76,11 +76,7 @@ def test_calculate_completion_rate_with_todos(calculator, sample_project, db_ses
     # Add 10 todos, 6 completed
     for i in range(10):
         status = "completed" if i < 6 else "open"
-        todo = Todo(
-            project_id=sample_project.id,
-            title=f"Todo {i}",
-            status=status
-        )
+        todo = Todo(project_id=sample_project.id, title=f"Todo {i}", status=status)
         db_session.add(todo)
 
     db_session.commit()
@@ -110,7 +106,7 @@ def test_calculate_health_score(calculator, sample_project, db_session):
             project_id=sample_project.id,
             title=f"Todo {i}",
             status="completed",
-            completed_at=datetime.utcnow() - timedelta(days=i)
+            completed_at=datetime.utcnow() - timedelta(days=i),
         )
         db_session.add(todo)
 
@@ -129,11 +125,7 @@ def test_get_todo_breakdown(calculator, sample_project, db_session):
     statuses = ["open", "open", "in_progress", "completed", "completed", "completed", "blocked"]
 
     for status in statuses:
-        todo = Todo(
-            project_id=sample_project.id,
-            title=f"Todo {status}",
-            status=status
-        )
+        todo = Todo(project_id=sample_project.id, title=f"Todo {status}", status=status)
         db_session.add(todo)
 
     db_session.commit()
@@ -157,7 +149,7 @@ def test_get_goal_breakdown(calculator, sample_project, db_session):
             title=f"Goal {status}",
             category="feature",
             priority=50,
-            status=status
+            status=status,
         )
         db_session.add(goal)
 
@@ -179,7 +171,7 @@ def test_get_overdue_todos(calculator, sample_project, db_session):
         project_id=sample_project.id,
         title="Overdue",
         status="open",
-        due_date=today - timedelta(days=5)
+        due_date=today - timedelta(days=5),
     )
 
     # Add future todo
@@ -187,7 +179,7 @@ def test_get_overdue_todos(calculator, sample_project, db_session):
         project_id=sample_project.id,
         title="Future",
         status="open",
-        due_date=today + timedelta(days=5)
+        due_date=today + timedelta(days=5),
     )
 
     db_session.add_all([overdue_todo, future_todo])
@@ -208,14 +200,14 @@ def test_get_upcoming_deadlines(calculator, sample_project, db_session):
         project_id=sample_project.id,
         title="Upcoming",
         status="open",
-        due_date=today + timedelta(days=3)
+        due_date=today + timedelta(days=3),
     )
 
     far_future = Todo(
         project_id=sample_project.id,
         title="Far Future",
         status="open",
-        due_date=today + timedelta(days=30)
+        due_date=today + timedelta(days=30),
     )
 
     db_session.add_all([upcoming, far_future])
@@ -236,7 +228,7 @@ def test_get_velocity_trend(calculator, sample_project, db_session):
                 project_id=sample_project.id,
                 title=f"Todo week {i} - {j}",
                 status="completed",
-                completed_at=datetime.utcnow() - timedelta(days=i * 7 + j)
+                completed_at=datetime.utcnow() - timedelta(days=i * 7 + j),
             )
             db_session.add(todo)
 
@@ -259,7 +251,7 @@ def test_calculate_burn_down(calculator, sample_project, db_session):
         title="Test Goal",
         category="feature",
         priority=80,
-        target_date=date.today() + timedelta(days=30)
+        target_date=date.today() + timedelta(days=30),
     )
     db_session.add(goal)
     db_session.flush()
@@ -267,12 +259,7 @@ def test_calculate_burn_down(calculator, sample_project, db_session):
     # Add todos (5 total, 3 completed)
     for i in range(5):
         status = "completed" if i < 3 else "open"
-        todo = Todo(
-            project_id=sample_project.id,
-            goal_id=goal.id,
-            title=f"Todo {i}",
-            status=status
-        )
+        todo = Todo(project_id=sample_project.id, goal_id=goal.id, title=f"Todo {i}", status=status)
         db_session.add(todo)
 
     db_session.commit()
@@ -290,10 +277,7 @@ def test_health_score_with_overdue_todos(calculator, sample_project, db_session)
     """Test that overdue todos negatively affect health score"""
     # Create two scenarios: one with overdue, one without
     project_no_overdue = Project(
-        name="NoOverdue",
-        path="/test/path2",
-        has_git=True,
-        last_activity_at=datetime.utcnow()
+        name="NoOverdue", path="/test/path2", has_git=True, last_activity_at=datetime.utcnow()
     )
     db_session.add(project_no_overdue)
     db_session.commit()
@@ -303,7 +287,7 @@ def test_health_score_with_overdue_todos(calculator, sample_project, db_session)
         project_id=sample_project.id,
         title="Overdue",
         status="open",
-        due_date=date.today() - timedelta(days=5)
+        due_date=date.today() - timedelta(days=5),
     )
     db_session.add(overdue_todo)
 
@@ -312,7 +296,7 @@ def test_health_score_with_overdue_todos(calculator, sample_project, db_session)
         project_id=project_no_overdue.id,
         title="On Time",
         status="open",
-        due_date=date.today() + timedelta(days=5)
+        due_date=date.today() + timedelta(days=5),
     )
     db_session.add(ontime_todo)
     db_session.commit()
@@ -331,7 +315,7 @@ def test_health_score_with_blocked_todos(calculator, sample_project, db_session)
         project_id=sample_project.id,
         title="Blocked",
         status="blocked",
-        blocked_by={"todo_ids": [999]}
+        blocked_by={"todo_ids": [999]},
     )
     db_session.add(blocked_todo)
     db_session.commit()

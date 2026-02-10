@@ -16,23 +16,39 @@ class GitScanner:
 
     # Patterns for matching todo references in commit messages
     TODO_PATTERNS = [
-        r'#T(\d+)',           # #T42
-        r'#(\d+)',            # #42
-        r'todo[:\s]+#?(\d+)', # todo: #42, todo 42
-        r'fixes?\s+#(\d+)',   # fixes #42, fix #42
-        r'closes?\s+#(\d+)',  # closes #42, close #42
-        r'resolves?\s+#(\d+)', # resolves #42, resolve #42
+        r"#T(\d+)",  # #T42
+        r"#(\d+)",  # #42
+        r"todo[:\s]+#?(\d+)",  # todo: #42, todo 42
+        r"fixes?\s+#(\d+)",  # fixes #42, fix #42
+        r"closes?\s+#(\d+)",  # closes #42, close #42
+        r"resolves?\s+#(\d+)",  # resolves #42, resolve #42
     ]
 
     # Actions that mark todos as completed
-    COMPLETION_KEYWORDS = ['fix', 'fixes', 'fixed', 'close', 'closes', 'closed',
-                          'resolve', 'resolves', 'resolved', 'complete', 'completes', 'completed']
+    COMPLETION_KEYWORDS = [
+        "fix",
+        "fixes",
+        "fixed",
+        "close",
+        "closes",
+        "closed",
+        "resolve",
+        "resolves",
+        "resolved",
+        "complete",
+        "completes",
+        "completed",
+    ]
 
     def __init__(self):
         """Initialize git scanner"""
-        self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.TODO_PATTERNS]
+        self.compiled_patterns = [
+            re.compile(pattern, re.IGNORECASE) for pattern in self.TODO_PATTERNS
+        ]
 
-    def scan_project(self, project: Project, session: Session, limit: Optional[int] = None) -> Tuple[int, int]:
+    def scan_project(
+        self, project: Project, session: Session, limit: Optional[int] = None
+    ) -> Tuple[int, int]:
         """Scan a project's git repository and sync commits
 
         Args:
@@ -57,8 +73,8 @@ class GitScanner:
 
         # Get existing commit SHAs to avoid duplicates
         existing_shas = {
-            commit.sha for commit in
-            session.query(Commit.sha).filter_by(project_id=project.id).all()
+            commit.sha
+            for commit in session.query(Commit.sha).filter_by(project_id=project.id).all()
         }
 
         commits_added = 0
@@ -76,8 +92,8 @@ class GitScanner:
             # Get commit stats
             stats = git_commit.stats
             files_changed = len(stats.files)
-            insertions = stats.total['insertions']
-            deletions = stats.total['deletions']
+            insertions = stats.total["insertions"]
+            deletions = stats.total["deletions"]
 
             # Create commit record
             commit = Commit(
@@ -103,20 +119,17 @@ class GitScanner:
             # Update linked todos
             if todo_ids:
                 for todo_id in todo_ids:
-                    todo = session.query(Todo).filter_by(
-                        id=todo_id,
-                        project_id=project.id
-                    ).first()
+                    todo = session.query(Todo).filter_by(id=todo_id, project_id=project.id).first()
 
                     if todo:
                         # Add commit reference to todo's tags
                         if not todo.tags:
                             todo.tags = {}
-                        if 'commit_shas' not in todo.tags:
-                            todo.tags['commit_shas'] = []
+                        if "commit_shas" not in todo.tags:
+                            todo.tags["commit_shas"] = []
 
-                        if git_commit.hexsha not in todo.tags['commit_shas']:
-                            todo.tags['commit_shas'].append(git_commit.hexsha)
+                        if git_commit.hexsha not in todo.tags["commit_shas"]:
+                            todo.tags["commit_shas"].append(git_commit.hexsha)
                             todo.tags = dict(todo.tags)  # Trigger SQLAlchemy update
 
                         # Auto-complete if completion keyword found
@@ -163,7 +176,9 @@ class GitScanner:
 
         return todo_ids, should_complete
 
-    def get_commit_stats(self, project: Project, session: Session, since: Optional[datetime] = None) -> Dict:
+    def get_commit_stats(
+        self, project: Project, session: Session, since: Optional[datetime] = None
+    ) -> Dict:
         """Get commit statistics for a project
 
         Args:
@@ -208,8 +223,9 @@ class GitScanner:
             "avg_files": total_files / len(commits) if commits else 0,
         }
 
-    def get_activity_timeline(self, project: Project, session: Session,
-                             days: int = 30) -> List[Dict]:
+    def get_activity_timeline(
+        self, project: Project, session: Session, days: int = 30
+    ) -> List[Dict]:
         """Get daily commit activity for a project
 
         Args:
@@ -224,10 +240,12 @@ class GitScanner:
 
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
-        commits = session.query(Commit).filter(
-            Commit.project_id == project.id,
-            Commit.committed_at >= cutoff_date
-        ).order_by(Commit.committed_at).all()
+        commits = (
+            session.query(Commit)
+            .filter(Commit.project_id == project.id, Commit.committed_at >= cutoff_date)
+            .order_by(Commit.committed_at)
+            .all()
+        )
 
         # Group by date
         activity_by_date = {}
@@ -246,9 +264,14 @@ class GitScanner:
 
         return sorted(activity_by_date.values(), key=lambda x: x["date"])
 
-    def get_recent_commits(self, project: Project, session: Session,
-                          limit: int = 10, author: Optional[str] = None,
-                          since: Optional[datetime] = None) -> List[Commit]:
+    def get_recent_commits(
+        self,
+        project: Project,
+        session: Session,
+        limit: int = 10,
+        author: Optional[str] = None,
+        since: Optional[datetime] = None,
+    ) -> List[Commit]:
         """Get recent commits for a project
 
         Args:
@@ -273,7 +296,9 @@ class GitScanner:
 
         return query.all()
 
-    def sync_all_projects(self, session: Session, limit_per_project: Optional[int] = None) -> Dict[str, Tuple[int, int]]:
+    def sync_all_projects(
+        self, session: Session, limit_per_project: Optional[int] = None
+    ) -> Dict[str, Tuple[int, int]]:
         """Sync all projects with git repositories
 
         Args:

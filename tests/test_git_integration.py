@@ -92,8 +92,20 @@ def test_parse_commit_message_no_todos(scanner):
 
 def test_parse_commit_message_completion_keywords(scanner):
     """Test all completion keywords"""
-    keywords = ['fix', 'fixes', 'fixed', 'close', 'closes', 'closed',
-                'resolve', 'resolves', 'resolved', 'complete', 'completes', 'completed']
+    keywords = [
+        "fix",
+        "fixes",
+        "fixed",
+        "close",
+        "closes",
+        "closed",
+        "resolve",
+        "resolves",
+        "resolved",
+        "complete",
+        "completes",
+        "completed",
+    ]
 
     for keyword in keywords:
         message = f"{keyword} #42"
@@ -109,9 +121,9 @@ def test_get_commit_stats_empty(scanner, db_session):
 
     stats = scanner.get_commit_stats(project, db_session)
 
-    assert stats['total_commits'] == 0
-    assert stats['total_insertions'] == 0
-    assert stats['unique_authors'] == 0
+    assert stats["total_commits"] == 0
+    assert stats["total_insertions"] == 0
+    assert stats["unique_authors"] == 0
 
 
 def test_get_commit_stats_with_commits(scanner, db_session):
@@ -150,13 +162,13 @@ def test_get_commit_stats_with_commits(scanner, db_session):
 
     stats = scanner.get_commit_stats(project, db_session)
 
-    assert stats['total_commits'] == 2
-    assert stats['total_insertions'] == 300
-    assert stats['total_deletions'] == 125
-    assert stats['total_files_changed'] == 13
-    assert stats['unique_authors'] == 2
-    assert stats['avg_insertions'] == 150.0
-    assert stats['avg_deletions'] == 62.5
+    assert stats["total_commits"] == 2
+    assert stats["total_insertions"] == 300
+    assert stats["total_deletions"] == 125
+    assert stats["total_files_changed"] == 13
+    assert stats["unique_authors"] == 2
+    assert stats["avg_insertions"] == 150.0
+    assert stats["avg_deletions"] == 62.5
 
 
 def test_get_commit_stats_with_since_filter(scanner, db_session):
@@ -201,8 +213,8 @@ def test_get_commit_stats_with_since_filter(scanner, db_session):
     since = now - timedelta(days=5)
     stats = scanner.get_commit_stats(project, db_session, since=since)
 
-    assert stats['total_commits'] == 1
-    assert stats['total_insertions'] == 200
+    assert stats["total_commits"] == 1
+    assert stats["total_insertions"] == 200
 
 
 def test_get_recent_commits(scanner, db_session):

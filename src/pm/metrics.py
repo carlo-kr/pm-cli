@@ -30,11 +30,15 @@ class MetricsCalculator:
         """
         cutoff = datetime.utcnow() - timedelta(days=days)
 
-        completed_count = session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status == "completed",
-            Todo.completed_at >= cutoff
-        ).count()
+        completed_count = (
+            session.query(Todo)
+            .filter(
+                Todo.project_id == project.id,
+                Todo.status == "completed",
+                Todo.completed_at >= cutoff,
+            )
+            .count()
+        )
 
         return completed_count / days if days > 0 else 0
 
@@ -53,10 +57,11 @@ class MetricsCalculator:
         if total == 0:
             return 0.0
 
-        completed = session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status == "completed"
-        ).count()
+        completed = (
+            session.query(Todo)
+            .filter(Todo.project_id == project.id, Todo.status == "completed")
+            .count()
+        )
 
         return (completed / total) * 100
 
@@ -83,15 +88,17 @@ class MetricsCalculator:
         cutoff_week = datetime.utcnow() - timedelta(days=7)
         cutoff_month = datetime.utcnow() - timedelta(days=30)
 
-        recent_commits = session.query(Commit).filter(
-            Commit.project_id == project.id,
-            Commit.committed_at >= cutoff_week
-        ).count()
+        recent_commits = (
+            session.query(Commit)
+            .filter(Commit.project_id == project.id, Commit.committed_at >= cutoff_week)
+            .count()
+        )
 
-        recent_todos = session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.completed_at >= cutoff_week
-        ).count()
+        recent_todos = (
+            session.query(Todo)
+            .filter(Todo.project_id == project.id, Todo.completed_at >= cutoff_week)
+            .count()
+        )
 
         if recent_commits > 5 or recent_todos > 3:
             score += 30
@@ -106,11 +113,15 @@ class MetricsCalculator:
 
         # 3. No overdue todos (20 points)
         today = date.today()
-        overdue_count = session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status.in_(["open", "in_progress"]),
-            Todo.due_date < today
-        ).count()
+        overdue_count = (
+            session.query(Todo)
+            .filter(
+                Todo.project_id == project.id,
+                Todo.status.in_(["open", "in_progress"]),
+                Todo.due_date < today,
+            )
+            .count()
+        )
 
         if overdue_count == 0:
             score += 20
@@ -118,10 +129,11 @@ class MetricsCalculator:
             score += 10
 
         # 4. No blocked todos (15 points)
-        blocked_count = session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status == "blocked"
-        ).count()
+        blocked_count = (
+            session.query(Todo)
+            .filter(Todo.project_id == project.id, Todo.status == "blocked")
+            .count()
+        )
 
         if blocked_count == 0:
             score += 15
@@ -129,18 +141,20 @@ class MetricsCalculator:
             score += 8
 
         # 5. Goal progress (10 points)
-        active_goals = session.query(Goal).filter(
-            Goal.project_id == project.id,
-            Goal.status == "active"
-        ).count()
+        active_goals = (
+            session.query(Goal)
+            .filter(Goal.project_id == project.id, Goal.status == "active")
+            .count()
+        )
 
         if active_goals > 0:
             # Check if goals have todos and some are completed
             goals_with_progress = 0
-            for goal in session.query(Goal).filter(
-                Goal.project_id == project.id,
-                Goal.status == "active"
-            ).all():
+            for goal in (
+                session.query(Goal)
+                .filter(Goal.project_id == project.id, Goal.status == "active")
+                .all()
+            ):
                 if len(goal.todos) > 0:
                     completed = sum(1 for t in goal.todos if t.status == "completed")
                     if completed > 0:
@@ -181,9 +195,12 @@ class MetricsCalculator:
             "cancelled": 0,
         }
 
-        results = session.query(Todo.status, func.count(Todo.id)).filter(
-            Todo.project_id == project.id
-        ).group_by(Todo.status).all()
+        results = (
+            session.query(Todo.status, func.count(Todo.id))
+            .filter(Todo.project_id == project.id)
+            .group_by(Todo.status)
+            .all()
+        )
 
         for status, count in results:
             if status in breakdown:
@@ -207,9 +224,12 @@ class MetricsCalculator:
             "cancelled": 0,
         }
 
-        results = session.query(Goal.status, func.count(Goal.id)).filter(
-            Goal.project_id == project.id
-        ).group_by(Goal.status).all()
+        results = (
+            session.query(Goal.status, func.count(Goal.id))
+            .filter(Goal.project_id == project.id)
+            .group_by(Goal.status)
+            .all()
+        )
 
         for status, count in results:
             if status in breakdown:
@@ -229,13 +249,20 @@ class MetricsCalculator:
         """
         today = date.today()
 
-        return session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status.in_(["open", "in_progress"]),
-            Todo.due_date < today
-        ).order_by(Todo.due_date).all()
+        return (
+            session.query(Todo)
+            .filter(
+                Todo.project_id == project.id,
+                Todo.status.in_(["open", "in_progress"]),
+                Todo.due_date < today,
+            )
+            .order_by(Todo.due_date)
+            .all()
+        )
 
-    def get_upcoming_deadlines(self, project: Project, session: Session, days: int = 7) -> List[Todo]:
+    def get_upcoming_deadlines(
+        self, project: Project, session: Session, days: int = 7
+    ) -> List[Todo]:
         """Get todos with upcoming deadlines
 
         Args:
@@ -249,12 +276,17 @@ class MetricsCalculator:
         today = date.today()
         future = today + timedelta(days=days)
 
-        return session.query(Todo).filter(
-            Todo.project_id == project.id,
-            Todo.status.in_(["open", "in_progress"]),
-            Todo.due_date >= today,
-            Todo.due_date <= future
-        ).order_by(Todo.due_date).all()
+        return (
+            session.query(Todo)
+            .filter(
+                Todo.project_id == project.id,
+                Todo.status.in_(["open", "in_progress"]),
+                Todo.due_date >= today,
+                Todo.due_date <= future,
+            )
+            .order_by(Todo.due_date)
+            .all()
+        )
 
     def get_velocity_trend(self, project: Project, session: Session, weeks: int = 4) -> List[Dict]:
         """Get velocity trend over time (weekly)
@@ -274,19 +306,25 @@ class MetricsCalculator:
             week_end = today - timedelta(days=i * 7)
             week_start = week_end - timedelta(days=7)
 
-            completed_count = session.query(Todo).filter(
-                Todo.project_id == project.id,
-                Todo.status == "completed",
-                Todo.completed_at >= datetime.combine(week_start, datetime.min.time()),
-                Todo.completed_at < datetime.combine(week_end, datetime.min.time())
-            ).count()
+            completed_count = (
+                session.query(Todo)
+                .filter(
+                    Todo.project_id == project.id,
+                    Todo.status == "completed",
+                    Todo.completed_at >= datetime.combine(week_start, datetime.min.time()),
+                    Todo.completed_at < datetime.combine(week_end, datetime.min.time()),
+                )
+                .count()
+            )
 
-            trend.append({
-                "week_start": week_start,
-                "week_end": week_end,
-                "velocity": completed_count / 7,
-                "todos_completed": completed_count,
-            })
+            trend.append(
+                {
+                    "week_start": week_start,
+                    "week_end": week_end,
+                    "velocity": completed_count / 7,
+                    "todos_completed": completed_count,
+                }
+            )
 
         return list(reversed(trend))
 
@@ -371,10 +409,11 @@ class MetricsCalculator:
         today = date.today()
 
         # Check if metrics already exist for today
-        existing = session.query(Metric).filter(
-            Metric.project_id == project.id,
-            Metric.recorded_at == today
-        ).first()
+        existing = (
+            session.query(Metric)
+            .filter(Metric.project_id == project.id, Metric.recorded_at == today)
+            .first()
+        )
 
         if existing:
             return  # Already recorded today
@@ -425,8 +464,9 @@ class MetricsCalculator:
 
         session.commit()
 
-    def get_metric_history(self, project: Project, session: Session,
-                          metric_type: str, days: int = 30) -> List[Tuple[date, float]]:
+    def get_metric_history(
+        self, project: Project, session: Session, metric_type: str, days: int = 30
+    ) -> List[Tuple[date, float]]:
         """Get historical metric values
 
         Args:
@@ -440,10 +480,15 @@ class MetricsCalculator:
         """
         cutoff = date.today() - timedelta(days=days)
 
-        metrics = session.query(Metric).filter(
-            Metric.project_id == project.id,
-            Metric.metric_type == metric_type,
-            Metric.recorded_at >= cutoff
-        ).order_by(Metric.recorded_at).all()
+        metrics = (
+            session.query(Metric)
+            .filter(
+                Metric.project_id == project.id,
+                Metric.metric_type == metric_type,
+                Metric.recorded_at >= cutoff,
+            )
+            .order_by(Metric.recorded_at)
+            .all()
+        )
 
         return [(m.recorded_at, m.value) for m in metrics]

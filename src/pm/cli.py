@@ -74,7 +74,9 @@ def init(ctx, workspace: Optional[str], db_path: Optional[str]):
     workspace_path = Path(workspace).expanduser().resolve()
 
     if not workspace_path.exists():
-        console.print(f"\n[bold red]Error:[/bold red] Workspace path does not exist: {workspace_path}")
+        console.print(
+            f"\n[bold red]Error:[/bold red] Workspace path does not exist: {workspace_path}"
+        )
         return
 
     console.print(f"\n[bold]Scanning workspace:[/bold] {workspace_path}")
@@ -87,18 +89,20 @@ def init(ctx, workspace: Optional[str], db_path: Optional[str]):
             continue
 
         # Check for project markers
-        is_project = any([
-            (item / "CLAUDE.md").exists(),
-            (item / "README.md").exists(),
-            (item / "package.json").exists(),
-            (item / "requirements.txt").exists(),
-            (item / "pyproject.toml").exists(),
-            (item / "Cargo.toml").exists(),
-            (item / "go.mod").exists(),
-            (item / "pom.xml").exists(),
-            (item / "project.yml").exists(),
-            is_git_repo(item),
-        ])
+        is_project = any(
+            [
+                (item / "CLAUDE.md").exists(),
+                (item / "README.md").exists(),
+                (item / "package.json").exists(),
+                (item / "requirements.txt").exists(),
+                (item / "pyproject.toml").exists(),
+                (item / "Cargo.toml").exists(),
+                (item / "go.mod").exists(),
+                (item / "pom.xml").exists(),
+                (item / "project.yml").exists(),
+                is_git_repo(item),
+            ]
+        )
 
         if is_project:
             projects_found.append(item)
@@ -140,7 +144,7 @@ def init(ctx, workspace: Optional[str], db_path: Optional[str]):
     console.print("\n[bold cyan]Next steps:[/bold cyan]")
     console.print("  • Run [bold]pm projects[/bold] to view all projects")
     console.print("  • Run [bold]pm project show <name>[/bold] for project details")
-    console.print("  • Run [bold]pm goal add <project> \"Goal title\"[/bold] to add goals")
+    console.print('  • Run [bold]pm goal add <project> "Goal title"[/bold] to add goals')
 
 
 @cli.group()
@@ -151,7 +155,12 @@ def project():
 
 @project.command("list")
 @click.option("--status", type=click.Choice(PROJECT_STATUSES), help="Filter by status")
-@click.option("--sort", type=click.Choice(["priority", "activity", "name"]), default="priority", help="Sort order")
+@click.option(
+    "--sort",
+    type=click.Choice(["priority", "activity", "name"]),
+    default="priority",
+    help="Sort order",
+)
 @click.pass_context
 def project_list(ctx, status: Optional[str], sort: str):
     """List all projects"""
@@ -215,7 +224,9 @@ def project_list(ctx, status: Optional[str], sort: str):
         }.get(proj["status"], "white")
 
         git_icon = "✓" if proj["has_git"] else "✗"
-        activity = format_datetime(proj["last_activity_at"]) if proj["last_activity_at"] else "Never"
+        activity = (
+            format_datetime(proj["last_activity_at"]) if proj["last_activity_at"] else "Never"
+        )
 
         table.add_row(
             proj["name"],
@@ -234,7 +245,9 @@ def project_list(ctx, status: Optional[str], sort: str):
 @click.argument("path", type=click.Path(exists=True))
 @click.option("--name", help="Project name (default: directory name)")
 @click.option("--priority", type=int, default=50, help="Priority (0-100)")
-@click.option("--status", type=click.Choice(PROJECT_STATUSES), default="active", help="Project status")
+@click.option(
+    "--status", type=click.Choice(PROJECT_STATUSES), default="active", help="Project status"
+)
 @click.pass_context
 def project_add(ctx, path: str, name: Optional[str], priority: int, status: str):
     """Add a new project"""
@@ -367,7 +380,12 @@ def project_show(ctx, name: str):
 # Alias 'projects' to 'project list'
 @cli.command("projects")
 @click.option("--status", type=click.Choice(PROJECT_STATUSES), help="Filter by status")
-@click.option("--sort", type=click.Choice(["priority", "activity", "name"]), default="priority", help="Sort order")
+@click.option(
+    "--sort",
+    type=click.Choice(["priority", "activity", "name"]),
+    default="priority",
+    help="Sort order",
+)
 @click.pass_context
 def projects_alias(ctx, status: Optional[str], sort: str):
     """List all projects (alias for 'project list')"""
@@ -377,6 +395,7 @@ def projects_alias(ctx, status: Optional[str], sort: str):
 # ============================================================================
 # Goal Management Commands
 # ============================================================================
+
 
 @cli.group()
 def goal():
@@ -388,12 +407,21 @@ def goal():
 @click.argument("project_name")
 @click.argument("title")
 @click.option("--description", "-d", help="Goal description")
-@click.option("--category", "-c", type=click.Choice(GOAL_CATEGORIES), default="feature", help="Goal category")
+@click.option(
+    "--category", "-c", type=click.Choice(GOAL_CATEGORIES), default="feature", help="Goal category"
+)
 @click.option("--priority", "-p", type=int, default=50, help="Priority (0-100)")
 @click.option("--target", "-t", help="Target date (YYYY-MM-DD)")
 @click.pass_context
-def goal_add(ctx, project_name: str, title: str, description: Optional[str],
-             category: str, priority: int, target: Optional[str]):
+def goal_add(
+    ctx,
+    project_name: str,
+    title: str,
+    description: Optional[str],
+    category: str,
+    priority: int,
+    target: Optional[str],
+):
     """Add a new goal to a project"""
 
     db_manager = ctx.obj["db"]
@@ -530,14 +558,16 @@ def goal_list(ctx, project_name: Optional[str], status: Optional[str], priority_
         if not project_name:
             row_data.append(g["project_name"])
 
-        row_data.extend([
-            g["title"],
-            f"[{category_color}]{g['category']}[/{category_color}]",
-            str(g["priority"]),
-            f"[{status_color}]{g['status']}[/{status_color}]",
-            format_date(g["target_date"]),
-            str(g["todo_count"]),
-        ])
+        row_data.extend(
+            [
+                g["title"],
+                f"[{category_color}]{g['category']}[/{category_color}]",
+                str(g["priority"]),
+                f"[{status_color}]{g['status']}[/{status_color}]",
+                format_date(g["target_date"]),
+                str(g["todo_count"]),
+            ]
+        )
 
         table.add_row(*row_data)
 
@@ -591,7 +621,7 @@ def goal_show(ctx, goal_id: int):
 [bold]Created:[/bold] {format_datetime(data['created_at'])}
 [bold]Updated:[/bold] {format_datetime(data['updated_at'])}"""
 
-    if data['description']:
+    if data["description"]:
         info = f"{info}\n\n[bold]Description:[/bold]\n{data['description']}"
 
     panel = Panel(
@@ -611,7 +641,9 @@ def goal_show(ctx, goal_id: int):
 @click.option("--priority", type=int, help="Update priority (0-100)")
 @click.option("--target", help="Update target date (YYYY-MM-DD)")
 @click.pass_context
-def goal_update(ctx, goal_id: int, status: Optional[str], priority: Optional[int], target: Optional[str]):
+def goal_update(
+    ctx, goal_id: int, status: Optional[str], priority: Optional[int], target: Optional[str]
+):
     """Update goal properties"""
 
     db_manager = ctx.obj["db"]
@@ -647,7 +679,9 @@ def goal_update(ctx, goal_id: int, status: Optional[str], priority: Optional[int
 
         session.commit()
 
-        console.print(f"\n[bold green]✓[/bold green] Updated goal #{goal_id}: [bold]{goal.title}[/bold]")
+        console.print(
+            f"\n[bold green]✓[/bold green] Updated goal #{goal_id}: [bold]{goal.title}[/bold]"
+        )
         for field in updated_fields:
             console.print(f"  • {field}")
 
@@ -658,7 +692,9 @@ def goal_update(ctx, goal_id: int, status: Optional[str], priority: Optional[int
 @click.option("--status", type=click.Choice(GOAL_STATUSES), help="Filter by status")
 @click.option("--priority-min", type=int, help="Minimum priority")
 @click.pass_context
-def goals_alias(ctx, project_name: Optional[str], status: Optional[str], priority_min: Optional[int]):
+def goals_alias(
+    ctx, project_name: Optional[str], status: Optional[str], priority_min: Optional[int]
+):
     """List goals (alias for 'goal list')"""
     ctx.invoke(goal_list, project_name=project_name, status=status, priority_min=priority_min)
 
@@ -666,6 +702,7 @@ def goals_alias(ctx, project_name: Optional[str], status: Optional[str], priorit
 # ============================================================================
 # Todo Management Commands
 # ============================================================================
+
 
 @cli.group()
 def todo():
@@ -682,8 +719,16 @@ def todo():
 @click.option("--due", help="Due date (YYYY-MM-DD)")
 @click.option("--tags", help="Comma-separated tags")
 @click.pass_context
-def todo_add(ctx, project_name: str, title: str, description: Optional[str],
-             goal: Optional[int], effort: Optional[str], due: Optional[str], tags: Optional[str]):
+def todo_add(
+    ctx,
+    project_name: str,
+    title: str,
+    description: Optional[str],
+    goal: Optional[int],
+    effort: Optional[str],
+    due: Optional[str],
+    tags: Optional[str],
+):
     """Add a new todo to a project"""
 
     db_manager = ctx.obj["db"]
@@ -701,7 +746,9 @@ def todo_add(ctx, project_name: str, title: str, description: Optional[str],
         if goal:
             goal_obj = session.query(Goal).filter_by(id=goal, project_id=project.id).first()
             if not goal_obj:
-                console.print(f"\n[bold red]Error:[/bold red] Goal #{goal} not found in project '{project_name}'")
+                console.print(
+                    f"\n[bold red]Error:[/bold red] Goal #{goal} not found in project '{project_name}'"
+                )
                 return
 
         # Parse due date
@@ -758,8 +805,14 @@ def todo_add(ctx, project_name: str, title: str, description: Optional[str],
 @click.option("--next", "show_next", is_flag=True, help="Show top 5 by priority")
 @click.option("--blocked", is_flag=True, help="Show only blocked todos")
 @click.pass_context
-def todo_list(ctx, project_name: Optional[str], status: Optional[str], goal: Optional[int],
-              show_next: bool, blocked: bool):
+def todo_list(
+    ctx,
+    project_name: Optional[str],
+    status: Optional[str],
+    goal: Optional[int],
+    show_next: bool,
+    blocked: bool,
+):
     """List todos (all projects or specific project)"""
 
     db_manager = ctx.obj["db"]
@@ -869,14 +922,16 @@ def todo_list(ctx, project_name: Optional[str], status: Optional[str], goal: Opt
         if not project_name:
             row_data.append(t["project_name"])
 
-        row_data.extend([
-            t["title"],
-            f"[{status_color}]{t['status']}[/{status_color}]",
-            f"[{priority_color}]{t['priority_score']:.1f}[/{priority_color}]",
-            t["effort"] or "-",
-            format_date(t["due_date"]),
-            t["goal_title"] or "-",
-        ])
+        row_data.extend(
+            [
+                t["title"],
+                f"[{status_color}]{t['status']}[/{status_color}]",
+                f"[{priority_color}]{t['priority_score']:.1f}[/{priority_color}]",
+                t["effort"] or "-",
+                format_date(t["due_date"]),
+                t["goal_title"] or "-",
+            ]
+        )
 
         table.add_row(*row_data)
 
@@ -903,10 +958,12 @@ def todo_show(ctx, todo_id: int):
         commit_shas = todo_obj.tags.get("commit_shas", []) if todo_obj.tags else []
         commits = []
         if commit_shas:
-            commits = session.query(Commit).filter(
-                Commit.project_id == todo_obj.project_id,
-                Commit.sha.in_(commit_shas)
-            ).order_by(Commit.committed_at.desc()).all()
+            commits = (
+                session.query(Commit)
+                .filter(Commit.project_id == todo_obj.project_id, Commit.sha.in_(commit_shas))
+                .order_by(Commit.committed_at.desc())
+                .all()
+            )
 
         data = {
             "id": todo_obj.id,
@@ -924,7 +981,7 @@ def todo_show(ctx, todo_id: int):
             "updated_at": todo_obj.updated_at,
             "started_at": todo_obj.started_at,
             "completed_at": todo_obj.completed_at,
-            "commits": [(c.sha[:7], c.message.split('\n')[0], c.committed_at) for c in commits],
+            "commits": [(c.sha[:7], c.message.split("\n")[0], c.committed_at) for c in commits],
         }
 
     # Create info panel
@@ -935,36 +992,38 @@ def todo_show(ctx, todo_id: int):
 [bold]Priority Score:[/bold] {data['priority_score']:.1f}
 """
 
-    if data['goal_title']:
+    if data["goal_title"]:
         info += f"[bold]Goal:[/bold] {data['goal_title']}\n"
 
-    if data['effort']:
+    if data["effort"]:
         info += f"[bold]Effort:[/bold] {data['effort']}\n"
 
-    if data['due_date']:
+    if data["due_date"]:
         info += f"[bold]Due:[/bold] {format_date(data['due_date'])}\n"
 
-    if data['tags']:
+    if data["tags"]:
         info += f"[bold]Tags:[/bold] {', '.join(data['tags'])}\n"
 
-    if data['blocked_by']:
+    if data["blocked_by"]:
         info += f"[bold]Blocked By:[/bold] Todos #{', #'.join(map(str, data['blocked_by']))}\n"
 
     info += f"\n[bold]Created:[/bold] {format_datetime(data['created_at'])}\n"
     info += f"[bold]Updated:[/bold] {format_datetime(data['updated_at'])}\n"
 
-    if data['started_at']:
+    if data["started_at"]:
         info += f"[bold]Started:[/bold] {format_datetime(data['started_at'])}\n"
 
-    if data['completed_at']:
+    if data["completed_at"]:
         info += f"[bold]Completed:[/bold] {format_datetime(data['completed_at'])}\n"
 
-    if data['commits']:
+    if data["commits"]:
         info += f"\n[bold cyan]Linked Commits:[/bold cyan]\n"
-        for sha, message, commit_date in data['commits']:
-            info += f"  • {sha}: {truncate_string(message, 50)} ({get_relative_time(commit_date)})\n"
+        for sha, message, commit_date in data["commits"]:
+            info += (
+                f"  • {sha}: {truncate_string(message, 50)} ({get_relative_time(commit_date)})\n"
+            )
 
-    if data['description']:
+    if data["description"]:
         info = f"{info}\n[bold]Description:[/bold]\n{data['description']}"
 
     panel = Panel(
@@ -994,7 +1053,9 @@ def todo_start(ctx, todo_id: int):
             return
 
         if todo_obj.status == "completed":
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} is already completed")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} is already completed"
+            )
             return
 
         todo_obj.status = "in_progress"
@@ -1007,7 +1068,9 @@ def todo_start(ctx, todo_id: int):
 
         session.commit()
 
-        console.print(f"\n[bold green]✓[/bold green] Started todo #{todo_id}: [bold]{todo_obj.title}[/bold]")
+        console.print(
+            f"\n[bold green]✓[/bold green] Started todo #{todo_id}: [bold]{todo_obj.title}[/bold]"
+        )
         console.print(f"  Status: in_progress")
         console.print(f"  Priority Score: {todo_obj.priority_score:.1f}")
 
@@ -1028,7 +1091,9 @@ def todo_complete(ctx, todo_id: int):
             return
 
         if todo_obj.status == "completed":
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} is already completed")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} is already completed"
+            )
             return
 
         todo_obj.status = "completed"
@@ -1036,7 +1101,9 @@ def todo_complete(ctx, todo_id: int):
 
         session.commit()
 
-        console.print(f"\n[bold green]✓[/bold green] Completed todo #{todo_id}: [bold]{todo_obj.title}[/bold]")
+        console.print(
+            f"\n[bold green]✓[/bold green] Completed todo #{todo_id}: [bold]{todo_obj.title}[/bold]"
+        )
         console.print(f"  🎉 Great work!")
 
 
@@ -1075,11 +1142,15 @@ def todo_block(ctx, todo_id: int, blocked_by_id: int):
 
             session.commit()
 
-            console.print(f"\n[bold yellow]⚠[/bold yellow] Todo #{todo_id} blocked by #{blocked_by_id}")
+            console.print(
+                f"\n[bold yellow]⚠[/bold yellow] Todo #{todo_id} blocked by #{blocked_by_id}"
+            )
             console.print(f"  Status: blocked")
             console.print(f"  Priority Score: {todo_obj.priority_score:.1f}")
         else:
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} already blocked by #{blocked_by_id}")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] Todo #{todo_id} already blocked by #{blocked_by_id}"
+            )
 
 
 # Alias 'todos' to 'todo list'
@@ -1090,16 +1161,29 @@ def todo_block(ctx, todo_id: int, blocked_by_id: int):
 @click.option("--next", "show_next", is_flag=True, help="Show top 5 by priority")
 @click.option("--blocked", is_flag=True, help="Show only blocked todos")
 @click.pass_context
-def todos_alias(ctx, project_name: Optional[str], status: Optional[str], goal: Optional[int],
-                show_next: bool, blocked: bool):
+def todos_alias(
+    ctx,
+    project_name: Optional[str],
+    status: Optional[str],
+    goal: Optional[int],
+    show_next: bool,
+    blocked: bool,
+):
     """List todos (alias for 'todo list')"""
-    ctx.invoke(todo_list, project_name=project_name, status=status, goal=goal,
-               show_next=show_next, blocked=blocked)
+    ctx.invoke(
+        todo_list,
+        project_name=project_name,
+        status=status,
+        goal=goal,
+        show_next=show_next,
+        blocked=blocked,
+    )
 
 
 # ============================================================================
 # Priority Management Commands
 # ============================================================================
+
 
 @cli.command("prioritize")
 @click.argument("project_name", required=False)
@@ -1126,12 +1210,15 @@ def prioritize(ctx, project_name: Optional[str]):
             count = calculator.recalculate_all(session, project_id)
 
         scope = f"in {project_name}" if project_name else "across all projects"
-        console.print(f"\n[bold green]✓[/bold green] Recalculated priorities for {count} todos {scope}")
+        console.print(
+            f"\n[bold green]✓[/bold green] Recalculated priorities for {count} todos {scope}"
+        )
 
 
 # ============================================================================
 # Git Integration Commands
 # ============================================================================
+
 
 @cli.command("sync")
 @click.argument("project_name", required=False)
@@ -1180,7 +1267,9 @@ def sync(ctx, project_name: Optional[str], sync_all: bool, limit: Optional[int])
 
             console.print()
             console.print(table)
-            console.print(f"\n[bold green]✓[/bold green] Synced {total_commits} commits, updated {total_todos} todos")
+            console.print(
+                f"\n[bold green]✓[/bold green] Synced {total_commits} commits, updated {total_todos} todos"
+            )
 
         else:
             # Sync specific project
@@ -1190,7 +1279,9 @@ def sync(ctx, project_name: Optional[str], sync_all: bool, limit: Optional[int])
                 return
 
             if not project.has_git:
-                console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+                console.print(
+                    f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository"
+                )
                 return
 
             with console.status(f"[bold cyan]Syncing {project_name}...[/bold cyan]"):
@@ -1220,7 +1311,9 @@ def activity(ctx, project_name: str, days: int, since: Optional[str]):
             return
 
         if not project.has_git:
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository"
+            )
             return
 
         # Parse since date
@@ -1229,6 +1322,7 @@ def activity(ctx, project_name: str, days: int, since: Optional[str]):
             try:
                 since_date = parse_date(since)
                 from datetime import timedelta
+
                 days = (datetime.now().date() - since_date).days
             except Exception as e:
                 console.print(f"\n[bold red]Error:[/bold red] Invalid date format: {e}")
@@ -1302,7 +1396,9 @@ def commits(ctx, project_name: str, limit: int, author: Optional[str], since: Op
             return
 
         if not project.has_git:
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository"
+            )
             return
 
         # Parse since date
@@ -1342,11 +1438,11 @@ def commits(ctx, project_name: str, limit: int, author: Optional[str], since: Op
             todos_str = ", ".join(f"#{id}" for id in todo_ids) if todo_ids else "-"
 
             # Truncate commit message (first line only)
-            message_first_line = commit.message.split('\n')[0]
+            message_first_line = commit.message.split("\n")[0]
             message = truncate_string(message_first_line, 50)
 
             # Author (name only, without email)
-            author_name = commit.author.split('<')[0].strip()
+            author_name = commit.author.split("<")[0].strip()
 
             # Changes summary
             changes = f"+{commit.insertions}/-{commit.deletions}"
@@ -1386,6 +1482,7 @@ def sync_and_prioritize(ctx, project_name: Optional[str]):
 # ============================================================================
 # Analytics & Metrics Commands
 # ============================================================================
+
 
 @cli.command("metrics")
 @click.argument("project_name")
@@ -1442,7 +1539,7 @@ def metrics(ctx, project_name: str, detailed: bool):
         metrics_table.add_row("Completion Rate", f"{completion_rate:.1f}%")
         metrics_table.add_row(
             "Last Activity",
-            format_datetime(project.last_activity_at) if project.last_activity_at else "Never"
+            format_datetime(project.last_activity_at) if project.last_activity_at else "Never",
         )
 
         console.print()
@@ -1464,10 +1561,7 @@ def metrics(ctx, project_name: str, detailed: bool):
         for status in ["open", "in_progress", "blocked", "completed"]:
             count = todo_breakdown[status]
             color = status_colors.get(status, "white")
-            todo_table.add_row(
-                f"[{color}]{status.replace('_', ' ').title()}[/{color}]",
-                str(count)
-            )
+            todo_table.add_row(f"[{color}]{status.replace('_', ' ').title()}[/{color}]", str(count))
 
         console.print(todo_table)
 
@@ -1491,7 +1585,9 @@ def metrics(ctx, project_name: str, detailed: bool):
                 console.print(f"  • #{todo.id}: {todo.title} ({days_overdue}d overdue)")
 
         if upcoming:
-            console.print(f"\n[bold yellow]📅 Upcoming:[/bold yellow] {len(upcoming)} todos in next 7 days")
+            console.print(
+                f"\n[bold yellow]📅 Upcoming:[/bold yellow] {len(upcoming)} todos in next 7 days"
+            )
             for todo in upcoming[:3]:
                 days_until = (todo.due_date - date.today()).days
                 console.print(f"  • #{todo.id}: {todo.title} (in {days_until}d)")
@@ -1510,8 +1606,8 @@ def metrics(ctx, project_name: str, detailed: bool):
                 week_label = f"{week_data['week_start'].strftime('%b %d')}"
                 trend_table.add_row(
                     week_label,
-                    str(week_data['todos_completed']),
-                    f"{week_data['velocity']:.2f}/day"
+                    str(week_data["todos_completed"]),
+                    f"{week_data['velocity']:.2f}/day",
                 )
 
             console.print(trend_table)
@@ -1540,9 +1636,13 @@ def review(ctx, project: Optional[str]):
                 return
         else:
             # Review active projects
-            projects = session.query(Project).filter_by(status="active").order_by(
-                Project.priority.desc()
-            ).limit(5).all()
+            projects = (
+                session.query(Project)
+                .filter_by(status="active")
+                .order_by(Project.priority.desc())
+                .limit(5)
+                .all()
+            )
 
         if not projects:
             console.print("[yellow]No active projects found[/yellow]")
@@ -1551,9 +1651,13 @@ def review(ctx, project: Optional[str]):
         for proj in projects:
             # Calculate health
             health_score, health_status = calculator.calculate_health_score(proj, session)
-            health_color = "green" if health_score >= 60 else "yellow" if health_score >= 40 else "red"
+            health_color = (
+                "green" if health_score >= 60 else "yellow" if health_score >= 40 else "red"
+            )
 
-            console.print(f"[bold]{proj.name}[/bold] - [{health_color}]{health_status} ({health_score:.0f}/100)[/{health_color}]")
+            console.print(
+                f"[bold]{proj.name}[/bold] - [{health_color}]{health_status} ({health_score:.0f}/100)[/{health_color}]"
+            )
 
             # Recent activity
             if proj.has_git:
@@ -1561,20 +1665,27 @@ def review(ctx, project: Optional[str]):
                 if recent_commits:
                     console.print(f"  [dim]Recent commits:[/dim]")
                     for commit in recent_commits:
-                        msg = commit.message.split('\n')[0]
-                        console.print(f"    • {truncate_string(msg, 60)} ({get_relative_time(commit.committed_at)})")
+                        msg = commit.message.split("\n")[0]
+                        console.print(
+                            f"    • {truncate_string(msg, 60)} ({get_relative_time(commit.committed_at)})"
+                        )
 
             # Active todos
-            active_todos = session.query(Todo).filter(
-                Todo.project_id == proj.id,
-                Todo.status.in_(["open", "in_progress"])
-            ).order_by(Todo.priority_score.desc()).limit(3).all()
+            active_todos = (
+                session.query(Todo)
+                .filter(Todo.project_id == proj.id, Todo.status.in_(["open", "in_progress"]))
+                .order_by(Todo.priority_score.desc())
+                .limit(3)
+                .all()
+            )
 
             if active_todos:
                 console.print(f"  [dim]Top priorities:[/dim]")
                 for todo in active_todos:
                     status_icon = "🔵" if todo.status == "in_progress" else "⚪"
-                    console.print(f"    {status_icon} #{todo.id}: {todo.title} (priority: {todo.priority_score:.0f})")
+                    console.print(
+                        f"    {status_icon} #{todo.id}: {todo.title} (priority: {todo.priority_score:.0f})"
+                    )
 
             # Overdue
             overdue = calculator.get_overdue_todos(proj, session)
@@ -1592,17 +1703,20 @@ def review(ctx, project: Optional[str]):
         console.print("[bold cyan]💡 Recommendations:[/bold cyan]")
 
         # Find highest priority todo across all projects
-        top_todo = session.query(Todo).filter(
-            Todo.status.in_(["open", "in_progress"])
-        ).order_by(Todo.priority_score.desc()).first()
+        top_todo = (
+            session.query(Todo)
+            .filter(Todo.status.in_(["open", "in_progress"]))
+            .order_by(Todo.priority_score.desc())
+            .first()
+        )
 
         if top_todo:
-            console.print(f"  • Start with: [bold]#{top_todo.id} - {top_todo.title}[/bold] ({top_todo.project.name})")
+            console.print(
+                f"  • Start with: [bold]#{top_todo.id} - {top_todo.title}[/bold] ({top_todo.project.name})"
+            )
 
         # Find blocked todos
-        blocked_count = session.query(Todo).filter(
-            Todo.status == "blocked"
-        ).count()
+        blocked_count = session.query(Todo).filter(Todo.status == "blocked").count()
 
         if blocked_count > 0:
             console.print(f"  • Unblock {blocked_count} blocked todos")
@@ -1616,7 +1730,9 @@ def review(ctx, project: Optional[str]):
 
 @cli.command("report")
 @click.argument("project_name")
-@click.option("--format", type=click.Choice(["markdown", "html"]), default="markdown", help="Output format")
+@click.option(
+    "--format", type=click.Choice(["markdown", "html"]), default="markdown", help="Output format"
+)
 @click.option("--output", type=click.Path(), help="Output file path")
 @click.pass_context
 def report(ctx, project_name: str, format: str, output: Optional[str]):
@@ -1638,7 +1754,9 @@ def report(ctx, project_name: str, format: str, output: Optional[str]):
         completion_rate = calculator.calculate_completion_rate(project, session)
         todo_breakdown = calculator.get_todo_breakdown(project, session)
         goal_breakdown = calculator.get_goal_breakdown(project, session)
-        commit_stats = scanner.get_commit_stats(project, session, since=datetime.utcnow() - timedelta(days=30))
+        commit_stats = scanner.get_commit_stats(
+            project, session, since=datetime.utcnow() - timedelta(days=30)
+        )
         overdue = calculator.get_overdue_todos(project, session)
         velocity_trend = calculator.get_velocity_trend(project, session, weeks=4)
 
@@ -1690,7 +1808,7 @@ def report(ctx, project_name: str, format: str, output: Optional[str]):
 |------|-----------|----------|
 """
             for week_data in velocity_trend:
-                week_label = week_data['week_start'].strftime('%b %d')
+                week_label = week_data["week_start"].strftime("%b %d")
                 report_content += f"| {week_label} | {week_data['todos_completed']} | {week_data['velocity']:.2f}/day |\n"
 
             if overdue:
@@ -1768,6 +1886,7 @@ def report(ctx, project_name: str, format: str, output: Optional[str]):
 # CLAUDE.md Integration Commands
 # ============================================================================
 
+
 @cli.command("import-claude-md")
 @click.argument("project_name")
 @click.option("--auto-import", is_flag=True, help="Automatically import goals without prompting")
@@ -1787,7 +1906,9 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
         # Find CLAUDE.md file
         claude_md_path = Path(project.path) / "CLAUDE.md"
         if not claude_md_path.exists():
-            console.print(f"\n[bold yellow]Warning:[/bold yellow] No CLAUDE.md found in {project.path}")
+            console.print(
+                f"\n[bold yellow]Warning:[/bold yellow] No CLAUDE.md found in {project.path}"
+            )
             return
 
         console.print(f"\n[bold cyan]Parsing CLAUDE.md...[/bold cyan]")
@@ -1796,40 +1917,43 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
         data = parser.parse_file(claude_md_path)
 
         # Update project description if found
-        if data.get('description') and not project.description:
-            project.description = data['description']
+        if data.get("description") and not project.description:
+            project.description = data["description"]
             console.print(f"[bold green]✓[/bold green] Updated project description")
 
         # Update tech stack if found
-        if data.get('tech_stack'):
-            project.tech_stack = data['tech_stack']
-            console.print(f"[bold green]✓[/bold green] Found tech stack: {', '.join(data['tech_stack'][:5])}")
+        if data.get("tech_stack"):
+            project.tech_stack = data["tech_stack"]
+            console.print(
+                f"[bold green]✓[/bold green] Found tech stack: {', '.join(data['tech_stack'][:5])}"
+            )
 
         # Store commands in metadata
-        if data.get('commands'):
+        if data.get("commands"):
             if not project.extra_data:
                 project.extra_data = {}
-            project.extra_data['commands'] = data['commands']
+            project.extra_data["commands"] = data["commands"]
             console.print(f"[bold green]✓[/bold green] Stored {len(data['commands'])} commands")
 
         session.commit()
 
         # Handle goals
-        suggested_goals = data.get('goals', [])
+        suggested_goals = data.get("goals", [])
         if suggested_goals:
             console.print(f"\n[bold cyan]Found {len(suggested_goals)} potential goals:[/bold cyan]")
 
             imported_count = 0
             for goal_data in suggested_goals:
-                title = goal_data['title']
-                category = goal_data['category']
+                title = goal_data["title"]
+                category = goal_data["category"]
                 priority = parser.suggest_priority(title)
 
                 # Check if goal already exists
-                existing = session.query(Goal).filter(
-                    Goal.project_id == project.id,
-                    Goal.title == title
-                ).first()
+                existing = (
+                    session.query(Goal)
+                    .filter(Goal.project_id == project.id, Goal.title == title)
+                    .first()
+                )
 
                 if existing:
                     continue
@@ -1841,10 +1965,7 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
                     console.print(f"\n  • {title}")
                     console.print(f"    Category: {category}, Priority: {priority}")
 
-                    should_import = questionary.confirm(
-                        "Import this goal?",
-                        default=True
-                    ).ask()
+                    should_import = questionary.confirm("Import this goal?", default=True).ask()
 
                 if should_import:
                     goal = Goal(
@@ -1852,7 +1973,7 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
                         title=title,
                         category=category,
                         priority=priority,
-                        status='active',
+                        status="active",
                     )
                     session.add(goal)
                     imported_count += 1
@@ -1868,6 +1989,7 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
 # Interactive Workflow Commands
 # ============================================================================
 
+
 @cli.command("start")
 @click.pass_context
 def start_workflow(ctx):
@@ -1877,25 +1999,23 @@ def start_workflow(ctx):
 
     with db_manager.get_session() as session:
         # Step 1: Pick project
-        projects = session.query(Project).filter_by(status="active").order_by(
-            Project.priority.desc()
-        ).all()
+        projects = (
+            session.query(Project)
+            .filter_by(status="active")
+            .order_by(Project.priority.desc())
+            .all()
+        )
 
         if not projects:
             console.print("[yellow]No active projects found[/yellow]")
             return
 
         project_choices = [
-            {
-                'name': f"{p.name} (priority: {p.priority})",
-                'value': p.id
-            }
-            for p in projects
+            {"name": f"{p.name} (priority: {p.priority})", "value": p.id} for p in projects
         ]
 
         project_id = questionary.select(
-            "Which project do you want to work on?",
-            choices=project_choices
+            "Which project do you want to work on?", choices=project_choices
         ).ask()
 
         if not project_id:
@@ -1904,39 +2024,46 @@ def start_workflow(ctx):
         project = session.query(Project).filter_by(id=project_id).first()
 
         # Step 2: Pick todo
-        todos = session.query(Todo).filter(
-            Todo.project_id == project_id,
-            Todo.status.in_(["open", "in_progress"])
-        ).order_by(Todo.priority_score.desc()).limit(10).all()
+        todos = (
+            session.query(Todo)
+            .filter(Todo.project_id == project_id, Todo.status.in_(["open", "in_progress"]))
+            .order_by(Todo.priority_score.desc())
+            .limit(10)
+            .all()
+        )
 
         if not todos:
             console.print(f"\n[yellow]No open todos found in {project.name}[/yellow]")
 
             # Offer to create a todo
             create_todo = questionary.confirm(
-                "Would you like to create a new todo?",
-                default=True
+                "Would you like to create a new todo?", default=True
             ).ask()
 
             if create_todo:
                 title = questionary.text("Todo title:").ask()
                 if title:
-                    ctx.invoke(todo_add, project_name=project.name, title=title,
-                              description=None, goal=None, effort=None, due=None, tags=None)
+                    ctx.invoke(
+                        todo_add,
+                        project_name=project.name,
+                        title=title,
+                        description=None,
+                        goal=None,
+                        effort=None,
+                        due=None,
+                        tags=None,
+                    )
             return
 
         todo_choices = [
             {
-                'name': f"#{t.id}: {t.title} (priority: {t.priority_score:.0f}, effort: {t.effort_estimate or '?'})",
-                'value': t.id
+                "name": f"#{t.id}: {t.title} (priority: {t.priority_score:.0f}, effort: {t.effort_estimate or '?'})",
+                "value": t.id,
             }
             for t in todos
         ]
 
-        todo_id = questionary.select(
-            f"Which todo in {project.name}?",
-            choices=todo_choices
-        ).ask()
+        todo_id = questionary.select(f"Which todo in {project.name}?", choices=todo_choices).ask()
 
         if not todo_id:
             return
@@ -1955,7 +2082,7 @@ def start_workflow(ctx):
             console.print(f"\n[dim]Description:[/dim]\n{todo_obj.description}")
 
         console.print(f"\n[bold cyan]💡 Tips:[/bold cyan]")
-        console.print(f"  • Reference this todo in commits: git commit -m \"fix: ... (#{todo_id})\"")
+        console.print(f'  • Reference this todo in commits: git commit -m "fix: ... (#{todo_id})"')
         console.print(f"  • When done: [bold]pm todo complete {todo_id}[/bold]")
         console.print(f"  • View details: [bold]pm todo show {todo_id}[/bold]")
 
@@ -1981,8 +2108,7 @@ def plan_workflow(ctx, project_name: str):
         claude_md_path = Path(project.path) / "CLAUDE.md"
         if claude_md_path.exists():
             import_goals = questionary.confirm(
-                "Found CLAUDE.md. Import goals from it?",
-                default=True
+                "Found CLAUDE.md. Import goals from it?", default=True
             ).ask()
 
             if import_goals:
@@ -1999,26 +2125,18 @@ def plan_workflow(ctx, project_name: str):
         description = questionary.text("Description (optional):").ask()
 
         category = questionary.select(
-            "Category:",
-            choices=["feature", "bugfix", "refactor", "docs", "ops"]
+            "Category:", choices=["feature", "bugfix", "refactor", "docs", "ops"]
         ).ask()
 
         priority = questionary.text(
-            "Priority (0-100):",
-            default="50",
-            validate=lambda x: x.isdigit() and 0 <= int(x) <= 100
+            "Priority (0-100):", default="50", validate=lambda x: x.isdigit() and 0 <= int(x) <= 100
         ).ask()
 
-        has_target = questionary.confirm(
-            "Set a target date?",
-            default=False
-        ).ask()
+        has_target = questionary.confirm("Set a target date?", default=False).ask()
 
         target_date = None
         if has_target:
-            target = questionary.text(
-                "Target date (YYYY-MM-DD):"
-            ).ask()
+            target = questionary.text("Target date (YYYY-MM-DD):").ask()
             if target:
                 try:
                     target_date = parse_date(target)
@@ -2033,7 +2151,7 @@ def plan_workflow(ctx, project_name: str):
             category=category,
             priority=int(priority),
             target_date=target_date,
-            status='active',
+            status="active",
         )
 
         session.add(goal)
@@ -2045,26 +2163,28 @@ def plan_workflow(ctx, project_name: str):
 
         # Offer to create todos
         create_todos = questionary.confirm(
-            "\nWould you like to create todos for this goal?",
-            default=True
+            "\nWould you like to create todos for this goal?", default=True
         ).ask()
 
         if create_todos:
             while True:
-                todo_title = questionary.text(
-                    "Todo title (or press Enter to finish):"
-                ).ask()
+                todo_title = questionary.text("Todo title (or press Enter to finish):").ask()
 
                 if not todo_title:
                     break
 
-                ctx.invoke(todo_add, project_name=project_name, title=todo_title,
-                          description=None, goal=goal.id, effort=None, due=None, tags=None)
+                ctx.invoke(
+                    todo_add,
+                    project_name=project_name,
+                    title=todo_title,
+                    description=None,
+                    goal=goal.id,
+                    effort=None,
+                    due=None,
+                    tags=None,
+                )
 
-                continue_adding = questionary.confirm(
-                    "Add another todo?",
-                    default=True
-                ).ask()
+                continue_adding = questionary.confirm("Add another todo?", default=True).ask()
 
                 if not continue_adding:
                     break
@@ -2092,7 +2212,7 @@ def standup_workflow(ctx):
             {"name": "📊 View metrics", "value": "metrics"},
             {"name": "🔄 Sync git activity", "value": "sync"},
             {"name": "❌ Skip", "value": "skip"},
-        ]
+        ],
     ).ask()
 
     if action == "start":
@@ -2108,17 +2228,11 @@ def standup_workflow(ctx):
                 return
 
             todo_choices = [
-                {
-                    'name': f"#{t.id}: {t.title} ({t.project.name})",
-                    'value': t.id
-                }
+                {"name": f"#{t.id}: {t.title} ({t.project.name})", "value": t.id}
                 for t in in_progress
             ]
 
-            todo_id = questionary.select(
-                "Which todo did you complete?",
-                choices=todo_choices
-            ).ask()
+            todo_id = questionary.select("Which todo did you complete?", choices=todo_choices).ask()
 
             if todo_id:
                 ctx.invoke(todo_complete, todo_id=todo_id)
@@ -2126,19 +2240,17 @@ def standup_workflow(ctx):
     elif action == "metrics":
         db_manager = ctx.obj["db"]
         with db_manager.get_session() as session:
-            projects = session.query(Project).filter_by(status="active").order_by(
-                Project.priority.desc()
-            ).limit(5).all()
+            projects = (
+                session.query(Project)
+                .filter_by(status="active")
+                .order_by(Project.priority.desc())
+                .limit(5)
+                .all()
+            )
 
-            project_choices = [
-                {'name': p.name, 'value': p.name}
-                for p in projects
-            ]
+            project_choices = [{"name": p.name, "value": p.name} for p in projects]
 
-            project_name = questionary.select(
-                "Which project?",
-                choices=project_choices
-            ).ask()
+            project_name = questionary.select("Which project?", choices=project_choices).ask()
 
             if project_name:
                 ctx.invoke(metrics, project_name=project_name, detailed=False)
@@ -2150,6 +2262,7 @@ def standup_workflow(ctx):
 # ============================================================================
 # Export/Import Commands
 # ============================================================================
+
 
 @cli.command("export")
 @click.argument("project_name")
@@ -2183,7 +2296,9 @@ def export_project(ctx, project_name: str, output: Optional[str]):
         else:
             console.print("\n" + json.dumps(data, indent=2))
 
-        console.print(f"\n[dim]Exported {len(goals)} goals, {len(todos)} todos, {len(commits)} commits[/dim]")
+        console.print(
+            f"\n[dim]Exported {len(goals)} goals, {len(todos)} todos, {len(commits)} commits[/dim]"
+        )
 
 
 @cli.command("backup")
@@ -2206,8 +2321,11 @@ def backup_all(ctx, output: Optional[str]):
         console.print(f"\n[bold cyan]Backing up {len(projects)} projects...[/bold cyan]")
 
         for project in projects:
-            ctx.invoke(export_project, project_name=project.name,
-                      output=str(output_dir / f"{project.name}.json"))
+            ctx.invoke(
+                export_project,
+                project_name=project.name,
+                output=str(output_dir / f"{project.name}.json"),
+            )
 
     console.print(f"\n[bold green]✓[/bold green] Backup complete: {output_dir}")
 

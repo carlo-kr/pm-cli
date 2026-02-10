@@ -102,6 +102,7 @@ def format_date(d: Optional[date]) -> str:
 def parse_date(date_str: str) -> date:
     """Parse date string in various formats"""
     from dateutil import parser
+
     return parser.parse(date_str).date()
 
 
@@ -144,7 +145,7 @@ def truncate_string(s: str, max_length: int = 50) -> str:
     """Truncate string with ellipsis if too long"""
     if len(s) <= max_length:
         return s
-    return s[:max_length - 3] + "..."
+    return s[: max_length - 3] + "..."
 
 
 def validate_priority(priority: int) -> int:

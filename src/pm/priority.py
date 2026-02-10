@@ -18,21 +18,27 @@ class PriorityCalculator:
             config: Configuration object with priority weights
         """
         self.config = config or Config()
-        self.weights = self.config.get("priority_weights", {
-            "goal_priority": 0.25,
-            "project_priority": 0.15,
-            "age_urgency": 0.15,
-            "deadline_pressure": 0.20,
-            "effort_value": 0.10,
-            "git_activity_boost": 0.10,
-            "blocking_impact": 0.05,
-        })
-        self.effort_scores = self.config.get("effort_scores", {
-            "S": 80,
-            "M": 60,
-            "L": 40,
-            "XL": 20,
-        })
+        self.weights = self.config.get(
+            "priority_weights",
+            {
+                "goal_priority": 0.25,
+                "project_priority": 0.15,
+                "age_urgency": 0.15,
+                "deadline_pressure": 0.20,
+                "effort_value": 0.10,
+                "git_activity_boost": 0.10,
+                "blocking_impact": 0.05,
+            },
+        )
+        self.effort_scores = self.config.get(
+            "effort_scores",
+            {
+                "S": 80,
+                "M": 60,
+                "L": 40,
+                "XL": 20,
+            },
+        )
 
     def calculate_priority(self, todo: Todo, session: Session) -> float:
         """Calculate priority score for a todo
@@ -147,10 +153,11 @@ class PriorityCalculator:
 
         # Check for commits in last 7 days
         cutoff = datetime.utcnow() - timedelta(days=7)
-        recent_commits = session.query(Commit).filter(
-            Commit.project_id == todo.project_id,
-            Commit.committed_at >= cutoff
-        ).count()
+        recent_commits = (
+            session.query(Commit)
+            .filter(Commit.project_id == todo.project_id, Commit.committed_at >= cutoff)
+            .count()
+        )
 
         if recent_commits == 0:
             return 30.0  # Low activity
@@ -165,10 +172,11 @@ class PriorityCalculator:
         """Calculate score based on how many other todos this blocks"""
         if not todo.blocked_by or len(todo.blocked_by.get("todo_ids", [])) == 0:
             # This todo doesn't block anything, check if it blocks others
-            blocked_count = session.query(Todo).filter(
-                Todo.project_id == todo.project_id,
-                Todo.status != "completed"
-            ).all()
+            blocked_count = (
+                session.query(Todo)
+                .filter(Todo.project_id == todo.project_id, Todo.status != "completed")
+                .all()
+            )
 
             # Count how many todos have this todo in their blocked_by
             blocking_count = 0
@@ -193,9 +201,7 @@ class PriorityCalculator:
         Returns:
             Number of todos updated
         """
-        query = session.query(Todo).filter(
-            Todo.status.in_(["open", "in_progress", "blocked"])
-        )
+        query = session.query(Todo).filter(Todo.status.in_(["open", "in_progress", "blocked"]))
 
         if project_id:
             query = query.filter(Todo.project_id == project_id)

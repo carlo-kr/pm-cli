@@ -42,11 +42,7 @@ class DatabaseManager:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
 
-        self.SessionLocal = sessionmaker(
-            autocommit=False,
-            autoflush=False,
-            bind=self.engine
-        )
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
     @staticmethod
     def _get_default_db_path() -> str:

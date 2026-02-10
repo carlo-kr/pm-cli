@@ -45,35 +45,33 @@ class ClaudeMdParser:
         """
         # Look for Overview section
         overview_match = re.search(
-            r'##\s+Overview\s*\n+(.*?)(?=\n##|\Z)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"##\s+Overview\s*\n+(.*?)(?=\n##|\Z)", content, re.DOTALL | re.IGNORECASE
         )
 
         if overview_match:
             desc = overview_match.group(1).strip()
             # Take first paragraph
-            first_para = desc.split('\n\n')[0]
+            first_para = desc.split("\n\n")[0]
             return first_para[:500]  # Limit length
 
         # Fallback: first paragraph after title
-        lines = content.split('\n')
+        lines = content.split("\n")
         desc_lines = []
         found_title = False
 
         for line in lines:
-            if line.startswith('# '):
+            if line.startswith("# "):
                 found_title = True
                 continue
             if found_title and line.strip():
-                if line.startswith('#'):
+                if line.startswith("#"):
                     break
                 desc_lines.append(line)
-                if len(' '.join(desc_lines)) > 500:
+                if len(" ".join(desc_lines)) > 500:
                     break
 
         if desc_lines:
-            return ' '.join(desc_lines).strip()[:500]
+            return " ".join(desc_lines).strip()[:500]
 
         return None
 
@@ -87,12 +85,35 @@ class ClaudeMdParser:
             List of technologies mentioned
         """
         tech_keywords = {
-            'python', 'javascript', 'typescript', 'react', 'vue', 'angular',
-            'node', 'express', 'fastapi', 'django', 'flask',
-            'swift', 'kotlin', 'java', 'go', 'rust',
-            'postgresql', 'mysql', 'mongodb', 'redis',
-            'docker', 'kubernetes', 'aws', 'gcp', 'azure',
-            'nextjs', 'gatsby', 'nuxt', 'svelte',
+            "python",
+            "javascript",
+            "typescript",
+            "react",
+            "vue",
+            "angular",
+            "node",
+            "express",
+            "fastapi",
+            "django",
+            "flask",
+            "swift",
+            "kotlin",
+            "java",
+            "go",
+            "rust",
+            "postgresql",
+            "mysql",
+            "mongodb",
+            "redis",
+            "docker",
+            "kubernetes",
+            "aws",
+            "gcp",
+            "azure",
+            "nextjs",
+            "gatsby",
+            "nuxt",
+            "svelte",
         }
 
         content_lower = content.lower()
@@ -117,9 +138,7 @@ class ClaudeMdParser:
 
         # Look for Commands section
         commands_match = re.search(
-            r'##\s+Commands\s*\n+(.*?)(?=\n##|\Z)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"##\s+Commands\s*\n+(.*?)(?=\n##|\Z)", content, re.DOTALL | re.IGNORECASE
         )
 
         if not commands_match:
@@ -128,22 +147,18 @@ class ClaudeMdParser:
         commands_section = commands_match.group(1)
 
         # Extract code blocks
-        code_blocks = re.findall(
-            r'```(?:bash|sh)?\n(.*?)```',
-            commands_section,
-            re.DOTALL
-        )
+        code_blocks = re.findall(r"```(?:bash|sh)?\n(.*?)```", commands_section, re.DOTALL)
 
         for i, block in enumerate(code_blocks):
-            lines = block.strip().split('\n')
+            lines = block.strip().split("\n")
             for line in lines:
                 line = line.strip()
-                if line and not line.startswith('#'):
+                if line and not line.startswith("#"):
                     # Extract command name from first word
                     parts = line.split()
                     if parts:
                         cmd_name = parts[0]
-                        if cmd_name not in ['cd', 'export', 'source']:
+                        if cmd_name not in ["cd", "export", "source"]:
                             commands[f"{cmd_name}_{i}"] = line
 
         return commands
@@ -161,10 +176,10 @@ class ClaudeMdParser:
 
         # Look for relevant sections
         section_patterns = [
-            r'##\s+Next\s+Steps\s*\n+(.*?)(?=\n##|\Z)',
-            r'##\s+TODO\s*\n+(.*?)(?=\n##|\Z)',
-            r'##\s+Roadmap\s*\n+(.*?)(?=\n##|\Z)',
-            r'##\s+Planned\s+Features\s*\n+(.*?)(?=\n##|\Z)',
+            r"##\s+Next\s+Steps\s*\n+(.*?)(?=\n##|\Z)",
+            r"##\s+TODO\s*\n+(.*?)(?=\n##|\Z)",
+            r"##\s+Roadmap\s*\n+(.*?)(?=\n##|\Z)",
+            r"##\s+Planned\s+Features\s*\n+(.*?)(?=\n##|\Z)",
         ]
 
         for pattern in section_patterns:
@@ -188,24 +203,26 @@ class ClaudeMdParser:
 
         # Match list items (bullets or checkboxes)
         patterns = [
-            r'^\s*[-*]\s+\[[ x]\]\s+(.+)$',  # Checkbox list
-            r'^\s*[-*]\s+(.+)$',              # Bullet list
-            r'^\s*\d+\.\s+(.+)$',             # Numbered list
+            r"^\s*[-*]\s+\[[ x]\]\s+(.+)$",  # Checkbox list
+            r"^\s*[-*]\s+(.+)$",  # Bullet list
+            r"^\s*\d+\.\s+(.+)$",  # Numbered list
         ]
 
-        lines = content.split('\n')
+        lines = content.split("\n")
         for line in lines:
             for pattern in patterns:
                 match = re.match(pattern, line)
                 if match:
                     title = match.group(1).strip()
                     # Skip if it's a heading or too short
-                    if len(title) > 5 and not title.startswith('#'):
+                    if len(title) > 5 and not title.startswith("#"):
                         category = self._infer_category(title)
-                        goals.append({
-                            'title': title,
-                            'category': category,
-                        })
+                        goals.append(
+                            {
+                                "title": title,
+                                "category": category,
+                            }
+                        )
                     break
 
         return goals
@@ -221,16 +238,16 @@ class ClaudeMdParser:
         """
         title_lower = title.lower()
 
-        if any(word in title_lower for word in ['fix', 'bug', 'issue', 'error']):
-            return 'bugfix'
-        elif any(word in title_lower for word in ['refactor', 'cleanup', 'improve']):
-            return 'refactor'
-        elif any(word in title_lower for word in ['doc', 'readme', 'guide']):
-            return 'docs'
-        elif any(word in title_lower for word in ['deploy', 'ci', 'test', 'build']):
-            return 'ops'
+        if any(word in title_lower for word in ["fix", "bug", "issue", "error"]):
+            return "bugfix"
+        elif any(word in title_lower for word in ["refactor", "cleanup", "improve"]):
+            return "refactor"
+        elif any(word in title_lower for word in ["doc", "readme", "guide"]):
+            return "docs"
+        elif any(word in title_lower for word in ["deploy", "ci", "test", "build"]):
+            return "ops"
         else:
-            return 'feature'
+            return "feature"
 
     def _extract_architecture(self, content: str) -> Optional[str]:
         """Extract architecture description
@@ -242,9 +259,7 @@ class ClaudeMdParser:
             Architecture description or None
         """
         arch_match = re.search(
-            r'##\s+Architecture\s*\n+(.*?)(?=\n##|\Z)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"##\s+Architecture\s*\n+(.*?)(?=\n##|\Z)", content, re.DOTALL | re.IGNORECASE
         )
 
         if arch_match:
@@ -265,15 +280,15 @@ class ClaudeMdParser:
         title_lower = goal_title.lower()
 
         # High priority keywords
-        if any(word in title_lower for word in ['critical', 'urgent', 'blocker', 'security']):
+        if any(word in title_lower for word in ["critical", "urgent", "blocker", "security"]):
             return 90
 
         # Medium-high priority
-        if any(word in title_lower for word in ['important', 'bug', 'fix', 'issue']):
+        if any(word in title_lower for word in ["important", "bug", "fix", "issue"]):
             return 70
 
         # Medium priority
-        if any(word in title_lower for word in ['enhance', 'improve', 'optimize']):
+        if any(word in title_lower for word in ["enhance", "improve", "optimize"]):
             return 60
 
         # Default
@@ -301,50 +316,50 @@ class ExportImport:
             Dictionary with all project data
         """
         return {
-            'version': '1.0',
-            'project': {
-                'name': project.name,
-                'path': project.path,
-                'description': project.description,
-                'tech_stack': project.tech_stack,
-                'status': project.status,
-                'priority': project.priority,
-                'has_git': project.has_git,
-                'extra_data': project.extra_data,
+            "version": "1.0",
+            "project": {
+                "name": project.name,
+                "path": project.path,
+                "description": project.description,
+                "tech_stack": project.tech_stack,
+                "status": project.status,
+                "priority": project.priority,
+                "has_git": project.has_git,
+                "extra_data": project.extra_data,
             },
-            'goals': [
+            "goals": [
                 {
-                    'title': g.title,
-                    'description': g.description,
-                    'category': g.category,
-                    'priority': g.priority,
-                    'status': g.status,
-                    'target_date': g.target_date.isoformat() if g.target_date else None,
+                    "title": g.title,
+                    "description": g.description,
+                    "category": g.category,
+                    "priority": g.priority,
+                    "status": g.status,
+                    "target_date": g.target_date.isoformat() if g.target_date else None,
                 }
                 for g in goals
             ],
-            'todos': [
+            "todos": [
                 {
-                    'title': t.title,
-                    'description': t.description,
-                    'goal_title': t.goal.title if t.goal else None,
-                    'status': t.status,
-                    'effort_estimate': t.effort_estimate,
-                    'due_date': t.due_date.isoformat() if t.due_date else None,
-                    'tags': t.tags,
-                    'blocked_by': t.blocked_by,
+                    "title": t.title,
+                    "description": t.description,
+                    "goal_title": t.goal.title if t.goal else None,
+                    "status": t.status,
+                    "effort_estimate": t.effort_estimate,
+                    "due_date": t.due_date.isoformat() if t.due_date else None,
+                    "tags": t.tags,
+                    "blocked_by": t.blocked_by,
                 }
                 for t in todos
             ],
-            'commits': [
+            "commits": [
                 {
-                    'sha': c.sha,
-                    'message': c.message,
-                    'author': c.author,
-                    'committed_at': c.committed_at.isoformat(),
-                    'insertions': c.insertions,
-                    'deletions': c.deletions,
-                    'files_changed': c.files_changed,
+                    "sha": c.sha,
+                    "message": c.message,
+                    "author": c.author,
+                    "committed_at": c.committed_at.isoformat(),
+                    "insertions": c.insertions,
+                    "deletions": c.deletions,
+                    "files_changed": c.files_changed,
                 }
                 for c in commits
             ],
@@ -362,7 +377,7 @@ class ExportImport:
         """
         # This would be implemented to import data
         # For now, just validate structure
-        required_keys = ['version', 'project', 'goals', 'todos']
+        required_keys = ["version", "project", "goals", "todos"]
 
         for key in required_keys:
             if key not in data:

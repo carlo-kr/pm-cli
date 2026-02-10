@@ -73,47 +73,47 @@ def test_extract_description(parser, sample_claude_md):
     """Test extracting project description"""
     data = parser.parse_file(sample_claude_md)
 
-    assert data['description'] is not None
-    assert 'test project' in data['description'].lower()
-    assert len(data['description']) <= 500
+    assert data["description"] is not None
+    assert "test project" in data["description"].lower()
+    assert len(data["description"]) <= 500
 
 
 def test_extract_tech_stack(parser, sample_claude_md):
     """Test extracting technology stack"""
     data = parser.parse_file(sample_claude_md)
 
-    tech_stack = data['tech_stack']
-    assert 'Python' in tech_stack
-    assert 'Typescript' in tech_stack
-    assert 'React' in tech_stack
-    assert 'Postgresql' in tech_stack
-    assert 'Docker' in tech_stack
+    tech_stack = data["tech_stack"]
+    assert "Python" in tech_stack
+    assert "Typescript" in tech_stack
+    assert "React" in tech_stack
+    assert "Postgresql" in tech_stack
+    assert "Docker" in tech_stack
 
 
 def test_extract_commands(parser, sample_claude_md):
     """Test extracting commands from Commands section"""
     data = parser.parse_file(sample_claude_md)
 
-    commands = data['commands']
+    commands = data["commands"]
     assert len(commands) > 0
 
     # Check that some expected commands are present
-    command_values = ' '.join(commands.values())
-    assert 'npm install' in command_values or 'pytest' in command_values
+    command_values = " ".join(commands.values())
+    assert "npm install" in command_values or "pytest" in command_values
 
 
 def test_extract_goals(parser, sample_claude_md):
     """Test extracting goals from Next Steps and TODO"""
     data = parser.parse_file(sample_claude_md)
 
-    goals = data['goals']
+    goals = data["goals"]
     assert len(goals) > 0
 
     # Check specific goals
-    titles = [g['title'] for g in goals]
-    assert any('authentication' in t.lower() for t in titles)
-    assert any('security' in t.lower() or 'bug' in t.lower() for t in titles)
-    assert any('refactor' in t.lower() for t in titles)
+    titles = [g["title"] for g in goals]
+    assert any("authentication" in t.lower() for t in titles)
+    assert any("security" in t.lower() or "bug" in t.lower() for t in titles)
+    assert any("refactor" in t.lower() for t in titles)
 
 
 def test_infer_category(parser):
@@ -145,9 +145,9 @@ def test_parse_checkbox_items(parser):
     goals = parser._parse_goal_items(content)
 
     assert len(goals) == 3
-    assert goals[0]['title'] == "Implement feature A"
-    assert goals[1]['title'] == "Complete feature B"
-    assert goals[2]['title'] == "Fix bug C"
+    assert goals[0]["title"] == "Implement feature A"
+    assert goals[1]["title"] == "Complete feature B"
+    assert goals[2]["title"] == "Fix bug C"
 
 
 def test_parse_bullet_items(parser):
@@ -160,7 +160,7 @@ def test_parse_bullet_items(parser):
     goals = parser._parse_goal_items(content)
 
     assert len(goals) == 3
-    assert goals[0]['title'] == "Add user management"
+    assert goals[0]["title"] == "Add user management"
 
 
 def test_parse_numbered_items(parser):
@@ -173,16 +173,16 @@ def test_parse_numbered_items(parser):
     goals = parser._parse_goal_items(content)
 
     assert len(goals) == 3
-    assert goals[0]['title'] == "Set up CI/CD pipeline"
+    assert goals[0]["title"] == "Set up CI/CD pipeline"
 
 
 def test_extract_architecture(parser, sample_claude_md):
     """Test extracting architecture description"""
     data = parser.parse_file(sample_claude_md)
 
-    architecture = data['architecture']
+    architecture = data["architecture"]
     assert architecture is not None
-    assert 'clean architecture' in architecture.lower()
+    assert "clean architecture" in architecture.lower()
     assert len(architecture) <= 1000
 
 
@@ -234,15 +234,15 @@ def test_export_project_structure():
 
     data = exporter.export_project(project, goals, todos, commits, None)
 
-    assert 'version' in data
-    assert 'project' in data
-    assert 'goals' in data
-    assert 'todos' in data
-    assert 'commits' in data
+    assert "version" in data
+    assert "project" in data
+    assert "goals" in data
+    assert "todos" in data
+    assert "commits" in data
 
-    assert data['project']['name'] == "Test"
-    assert len(data['goals']) == 1
-    assert len(data['todos']) == 1
+    assert data["project"]["name"] == "Test"
+    assert len(data["goals"]) == 1
+    assert len(data["todos"]) == 1
 
 
 def test_import_project_validation():
@@ -251,10 +251,10 @@ def test_import_project_validation():
 
     # Valid data
     valid_data = {
-        'version': '1.0',
-        'project': {},
-        'goals': [],
-        'todos': [],
+        "version": "1.0",
+        "project": {},
+        "goals": [],
+        "todos": [],
     }
 
     success, message = exporter.import_project(valid_data, None)
@@ -262,13 +262,13 @@ def test_import_project_validation():
 
     # Invalid data - missing key
     invalid_data = {
-        'version': '1.0',
-        'project': {},
+        "version": "1.0",
+        "project": {},
     }
 
     success, message = exporter.import_project(invalid_data, None)
     assert success is False
-    assert 'Missing required key' in message
+    assert "Missing required key" in message
 
 
 def test_parse_multiple_next_steps_sections(parser, tmp_path):
@@ -291,11 +291,11 @@ def test_parse_multiple_next_steps_sections(parser, tmp_path):
     file_path.write_text(content)
 
     data = parser.parse_file(file_path)
-    goals = data['goals']
+    goals = data["goals"]
 
     # Should find goals from all three sections
     assert len(goals) >= 5
-    titles = [g['title'] for g in goals]
+    titles = [g["title"] for g in goals]
     assert "Feature A" in titles
     assert "Feature C" in titles
     assert "Fix bug E" in titles
