@@ -1,10 +1,10 @@
 """Priority scoring algorithm for todos"""
 
 from datetime import datetime, date, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional
 from sqlalchemy.orm import Session
 
-from .models import Todo, Goal, Project, Commit
+from .models import Todo, Commit
 from .utils import Config
 
 

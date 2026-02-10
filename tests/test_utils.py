@@ -1,7 +1,7 @@
 """Tests for utility functions"""
 
 import pytest
-from datetime import datetime, date
+from datetime import datetime
 from pm.utils import (
     validate_priority,
     validate_status,

@@ -1,7 +1,6 @@
 """Tests for CLAUDE.md parsing"""
 
 import pytest
-from pathlib import Path
 from pm.claude_md import ClaudeMdParser, ExportImport
 
 

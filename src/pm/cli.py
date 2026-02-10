@@ -20,7 +20,6 @@ from .utils import (
     get_project_name_from_path,
     is_git_repo,
     validate_priority,
-    validate_status,
     get_relative_time,
     truncate_string,
     PROJECT_STATUSES,
@@ -1017,7 +1016,7 @@ def todo_show(ctx, todo_id: int):
         info += f"[bold]Completed:[/bold] {format_datetime(data['completed_at'])}\n"
 
     if data["commits"]:
-        info += f"\n[bold cyan]Linked Commits:[/bold cyan]\n"
+        info += "\n[bold cyan]Linked Commits:[/bold cyan]\n"
         for sha, message, commit_date in data["commits"]:
             info += (
                 f"  • {sha}: {truncate_string(message, 50)} ({get_relative_time(commit_date)})\n"
@@ -1071,7 +1070,7 @@ def todo_start(ctx, todo_id: int):
         console.print(
             f"\n[bold green]✓[/bold green] Started todo #{todo_id}: [bold]{todo_obj.title}[/bold]"
         )
-        console.print(f"  Status: in_progress")
+        console.print("  Status: in_progress")
         console.print(f"  Priority Score: {todo_obj.priority_score:.1f}")
 
 
@@ -1104,7 +1103,7 @@ def todo_complete(ctx, todo_id: int):
         console.print(
             f"\n[bold green]✓[/bold green] Completed todo #{todo_id}: [bold]{todo_obj.title}[/bold]"
         )
-        console.print(f"  🎉 Great work!")
+        console.print("  🎉 Great work!")
 
 
 @todo.command("block")
@@ -1145,7 +1144,7 @@ def todo_block(ctx, todo_id: int, blocked_by_id: int):
             console.print(
                 f"\n[bold yellow]⚠[/bold yellow] Todo #{todo_id} blocked by #{blocked_by_id}"
             )
-            console.print(f"  Status: blocked")
+            console.print("  Status: blocked")
             console.print(f"  Priority Score: {todo_obj.priority_score:.1f}")
         else:
             console.print(
@@ -1321,7 +1320,6 @@ def activity(ctx, project_name: str, days: int, since: Optional[str]):
         if since:
             try:
                 since_date = parse_date(since)
-                from datetime import timedelta
 
                 days = (datetime.now().date() - since_date).days
             except Exception as e:
@@ -1368,7 +1366,7 @@ def activity(ctx, project_name: str, days: int, since: Optional[str]):
         console.print(table)
 
         # Display summary stats
-        console.print(f"\n[bold cyan]Summary:[/bold cyan]")
+        console.print("\n[bold cyan]Summary:[/bold cyan]")
         console.print(f"  • Total commits: {stats['total_commits']}")
         console.print(f"  • Total insertions: [green]+{stats['total_insertions']}[/green]")
         console.print(f"  • Total deletions: [red]-{stats['total_deletions']}[/red]")
@@ -1414,7 +1412,7 @@ def commits(ctx, project_name: str, limit: int, author: Optional[str], since: Op
         recent_commits = scanner.get_recent_commits(project, session, limit, author, since_date)
 
         if not recent_commits:
-            console.print(f"\n[yellow]No commits found[/yellow]")
+            console.print("\n[yellow]No commits found[/yellow]")
             return
 
         # Display commits
@@ -1663,7 +1661,7 @@ def review(ctx, project: Optional[str]):
             if proj.has_git:
                 recent_commits = scanner.get_recent_commits(proj, session, limit=3)
                 if recent_commits:
-                    console.print(f"  [dim]Recent commits:[/dim]")
+                    console.print("  [dim]Recent commits:[/dim]")
                     for commit in recent_commits:
                         msg = commit.message.split("\n")[0]
                         console.print(
@@ -1680,7 +1678,7 @@ def review(ctx, project: Optional[str]):
             )
 
             if active_todos:
-                console.print(f"  [dim]Top priorities:[/dim]")
+                console.print("  [dim]Top priorities:[/dim]")
                 for todo in active_todos:
                     status_icon = "🔵" if todo.status == "in_progress" else "⚪"
                     console.print(
@@ -1911,7 +1909,7 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
             )
             return
 
-        console.print(f"\n[bold cyan]Parsing CLAUDE.md...[/bold cyan]")
+        console.print("\n[bold cyan]Parsing CLAUDE.md...[/bold cyan]")
 
         # Parse file
         data = parser.parse_file(claude_md_path)
@@ -1919,7 +1917,7 @@ def import_claude_md(ctx, project_name: str, auto_import: bool):
         # Update project description if found
         if data.get("description") and not project.description:
             project.description = data["description"]
-            console.print(f"[bold green]✓[/bold green] Updated project description")
+            console.print("[bold green]✓[/bold green] Updated project description")
 
         # Update tech stack if found
         if data.get("tech_stack"):
@@ -2074,14 +2072,14 @@ def start_workflow(ctx):
         # Step 4: Show what to do
         todo_obj = session.query(Todo).filter_by(id=todo_id).first()
 
-        console.print(f"\n[bold green]🚀 Ready to work on:[/bold green]")
+        console.print("\n[bold green]🚀 Ready to work on:[/bold green]")
         console.print(f"  Project: {project.name}")
         console.print(f"  Todo: #{todo_obj.id} - {todo_obj.title}")
 
         if todo_obj.description:
             console.print(f"\n[dim]Description:[/dim]\n{todo_obj.description}")
 
-        console.print(f"\n[bold cyan]💡 Tips:[/bold cyan]")
+        console.print("\n[bold cyan]💡 Tips:[/bold cyan]")
         console.print(f'  • Reference this todo in commits: git commit -m "fix: ... (#{todo_id})"')
         console.print(f"  • When done: [bold]pm todo complete {todo_id}[/bold]")
         console.print(f"  • View details: [bold]pm todo show {todo_id}[/bold]")
@@ -2094,7 +2092,6 @@ def plan_workflow(ctx, project_name: str):
     """Interactive goal planning workflow"""
 
     db_manager = ctx.obj["db"]
-    parser = ClaudeMdParser()
 
     with db_manager.get_session() as session:
         project = session.query(Project).filter_by(name=project_name).first()
@@ -2195,7 +2192,7 @@ def plan_workflow(ctx, project_name: str):
 def standup_workflow(ctx):
     """Interactive daily standup workflow"""
 
-    console.print(f"\n[bold cyan]📋 Daily Standup[/bold cyan]")
+    console.print("\n[bold cyan]📋 Daily Standup[/bold cyan]")
     console.print(f"[dim]{datetime.now().strftime('%A, %B %d, %Y')}[/dim]\n")
 
     # Show review first

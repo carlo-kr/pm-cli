@@ -1,12 +1,11 @@
 """Database manager for PM CLI"""
 
-import os
 from pathlib import Path
 from typing import Optional
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from .models import Base

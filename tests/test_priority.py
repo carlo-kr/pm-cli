@@ -7,7 +7,6 @@ from sqlalchemy.orm import sessionmaker
 
 from pm.models import Base, Project, Goal, Todo
 from pm.priority import PriorityCalculator
-from pm.utils import Config
 
 
 @pytest.fixture

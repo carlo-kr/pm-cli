@@ -1,11 +1,10 @@
 """Tests for database models"""
 
 import pytest
-from datetime import datetime, date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from pm.models import Base, Project, Goal, Todo, Commit, Metric
+from pm.models import Base, Project, Goal, Todo
 
 
 @pytest.fixture

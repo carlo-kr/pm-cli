@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from pm.models import Base, Project, Todo, Commit
+from pm.models import Base, Project, Commit
 from pm.git_integration import GitScanner
 
 

@@ -2,7 +2,6 @@
 
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Optional, Tuple
-from collections import defaultdict
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
