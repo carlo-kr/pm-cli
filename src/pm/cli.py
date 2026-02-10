@@ -32,6 +32,9 @@ from .utils import (
 from .priority import PriorityCalculator
 from .git_integration import GitScanner
 from .metrics import MetricsCalculator
+from .claude_md import ClaudeMdParser, ExportImport
+import questionary
+import json
 
 console = Console()
 
@@ -1759,6 +1762,454 @@ def report(ctx, project_name: str, format: str, output: Optional[str]):
             console.print(f"\n[bold green]✓[/bold green] Report saved to: {output_path}")
         else:
             console.print("\n" + report_content)
+
+
+# ============================================================================
+# CLAUDE.md Integration Commands
+# ============================================================================
+
+@cli.command("import-claude-md")
+@click.argument("project_name")
+@click.option("--auto-import", is_flag=True, help="Automatically import goals without prompting")
+@click.pass_context
+def import_claude_md(ctx, project_name: str, auto_import: bool):
+    """Parse CLAUDE.md and import metadata and goals"""
+
+    db_manager = ctx.obj["db"]
+    parser = ClaudeMdParser()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        # Find CLAUDE.md file
+        claude_md_path = Path(project.path) / "CLAUDE.md"
+        if not claude_md_path.exists():
+            console.print(f"\n[bold yellow]Warning:[/bold yellow] No CLAUDE.md found in {project.path}")
+            return
+
+        console.print(f"\n[bold cyan]Parsing CLAUDE.md...[/bold cyan]")
+
+        # Parse file
+        data = parser.parse_file(claude_md_path)
+
+        # Update project description if found
+        if data.get('description') and not project.description:
+            project.description = data['description']
+            console.print(f"[bold green]✓[/bold green] Updated project description")
+
+        # Update tech stack if found
+        if data.get('tech_stack'):
+            project.tech_stack = data['tech_stack']
+            console.print(f"[bold green]✓[/bold green] Found tech stack: {', '.join(data['tech_stack'][:5])}")
+
+        # Store commands in metadata
+        if data.get('commands'):
+            if not project.extra_data:
+                project.extra_data = {}
+            project.extra_data['commands'] = data['commands']
+            console.print(f"[bold green]✓[/bold green] Stored {len(data['commands'])} commands")
+
+        session.commit()
+
+        # Handle goals
+        suggested_goals = data.get('goals', [])
+        if suggested_goals:
+            console.print(f"\n[bold cyan]Found {len(suggested_goals)} potential goals:[/bold cyan]")
+
+            imported_count = 0
+            for goal_data in suggested_goals:
+                title = goal_data['title']
+                category = goal_data['category']
+                priority = parser.suggest_priority(title)
+
+                # Check if goal already exists
+                existing = session.query(Goal).filter(
+                    Goal.project_id == project.id,
+                    Goal.title == title
+                ).first()
+
+                if existing:
+                    continue
+
+                if auto_import:
+                    should_import = True
+                else:
+                    # Ask user
+                    console.print(f"\n  • {title}")
+                    console.print(f"    Category: {category}, Priority: {priority}")
+
+                    should_import = questionary.confirm(
+                        "Import this goal?",
+                        default=True
+                    ).ask()
+
+                if should_import:
+                    goal = Goal(
+                        project_id=project.id,
+                        title=title,
+                        category=category,
+                        priority=priority,
+                        status='active',
+                    )
+                    session.add(goal)
+                    imported_count += 1
+
+            session.commit()
+
+            console.print(f"\n[bold green]✓[/bold green] Imported {imported_count} goals")
+        else:
+            console.print("\n[yellow]No goals found in Next Steps/TODO/Roadmap sections[/yellow]")
+
+
+# ============================================================================
+# Interactive Workflow Commands
+# ============================================================================
+
+@cli.command("start")
+@click.pass_context
+def start_workflow(ctx):
+    """Interactive workflow: pick project and todo, then start working"""
+
+    db_manager = ctx.obj["db"]
+
+    with db_manager.get_session() as session:
+        # Step 1: Pick project
+        projects = session.query(Project).filter_by(status="active").order_by(
+            Project.priority.desc()
+        ).all()
+
+        if not projects:
+            console.print("[yellow]No active projects found[/yellow]")
+            return
+
+        project_choices = [
+            {
+                'name': f"{p.name} (priority: {p.priority})",
+                'value': p.id
+            }
+            for p in projects
+        ]
+
+        project_id = questionary.select(
+            "Which project do you want to work on?",
+            choices=project_choices
+        ).ask()
+
+        if not project_id:
+            return
+
+        project = session.query(Project).filter_by(id=project_id).first()
+
+        # Step 2: Pick todo
+        todos = session.query(Todo).filter(
+            Todo.project_id == project_id,
+            Todo.status.in_(["open", "in_progress"])
+        ).order_by(Todo.priority_score.desc()).limit(10).all()
+
+        if not todos:
+            console.print(f"\n[yellow]No open todos found in {project.name}[/yellow]")
+
+            # Offer to create a todo
+            create_todo = questionary.confirm(
+                "Would you like to create a new todo?",
+                default=True
+            ).ask()
+
+            if create_todo:
+                title = questionary.text("Todo title:").ask()
+                if title:
+                    ctx.invoke(todo_add, project_name=project.name, title=title,
+                              description=None, goal=None, effort=None, due=None, tags=None)
+            return
+
+        todo_choices = [
+            {
+                'name': f"#{t.id}: {t.title} (priority: {t.priority_score:.0f}, effort: {t.effort_estimate or '?'})",
+                'value': t.id
+            }
+            for t in todos
+        ]
+
+        todo_id = questionary.select(
+            f"Which todo in {project.name}?",
+            choices=todo_choices
+        ).ask()
+
+        if not todo_id:
+            return
+
+        # Step 3: Start the todo
+        ctx.invoke(todo_start, todo_id=todo_id)
+
+        # Step 4: Show what to do
+        todo_obj = session.query(Todo).filter_by(id=todo_id).first()
+
+        console.print(f"\n[bold green]🚀 Ready to work on:[/bold green]")
+        console.print(f"  Project: {project.name}")
+        console.print(f"  Todo: #{todo_obj.id} - {todo_obj.title}")
+
+        if todo_obj.description:
+            console.print(f"\n[dim]Description:[/dim]\n{todo_obj.description}")
+
+        console.print(f"\n[bold cyan]💡 Tips:[/bold cyan]")
+        console.print(f"  • Reference this todo in commits: git commit -m \"fix: ... (#{todo_id})\"")
+        console.print(f"  • When done: [bold]pm todo complete {todo_id}[/bold]")
+        console.print(f"  • View details: [bold]pm todo show {todo_id}[/bold]")
+
+
+@cli.command("plan")
+@click.argument("project_name")
+@click.pass_context
+def plan_workflow(ctx, project_name: str):
+    """Interactive goal planning workflow"""
+
+    db_manager = ctx.obj["db"]
+    parser = ClaudeMdParser()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        console.print(f"\n[bold cyan]Goal Planning for {project_name}[/bold cyan]\n")
+
+        # Check for CLAUDE.md
+        claude_md_path = Path(project.path) / "CLAUDE.md"
+        if claude_md_path.exists():
+            import_goals = questionary.confirm(
+                "Found CLAUDE.md. Import goals from it?",
+                default=True
+            ).ask()
+
+            if import_goals:
+                ctx.invoke(import_claude_md, project_name=project_name, auto_import=False)
+                return
+
+        # Manual goal creation
+        console.print("Let's create a new goal.\n")
+
+        title = questionary.text("Goal title:").ask()
+        if not title:
+            return
+
+        description = questionary.text("Description (optional):").ask()
+
+        category = questionary.select(
+            "Category:",
+            choices=["feature", "bugfix", "refactor", "docs", "ops"]
+        ).ask()
+
+        priority = questionary.text(
+            "Priority (0-100):",
+            default="50",
+            validate=lambda x: x.isdigit() and 0 <= int(x) <= 100
+        ).ask()
+
+        has_target = questionary.confirm(
+            "Set a target date?",
+            default=False
+        ).ask()
+
+        target_date = None
+        if has_target:
+            target = questionary.text(
+                "Target date (YYYY-MM-DD):"
+            ).ask()
+            if target:
+                try:
+                    target_date = parse_date(target)
+                except Exception:
+                    console.print("[yellow]Invalid date format, skipping target date[/yellow]")
+
+        # Create goal
+        goal = Goal(
+            project_id=project.id,
+            title=title,
+            description=description,
+            category=category,
+            priority=int(priority),
+            target_date=target_date,
+            status='active',
+        )
+
+        session.add(goal)
+        session.commit()
+
+        console.print(f"\n[bold green]✓[/bold green] Created goal: [bold]{title}[/bold]")
+        console.print(f"  ID: #{goal.id}")
+        console.print(f"  Priority: {priority}")
+
+        # Offer to create todos
+        create_todos = questionary.confirm(
+            "\nWould you like to create todos for this goal?",
+            default=True
+        ).ask()
+
+        if create_todos:
+            while True:
+                todo_title = questionary.text(
+                    "Todo title (or press Enter to finish):"
+                ).ask()
+
+                if not todo_title:
+                    break
+
+                ctx.invoke(todo_add, project_name=project_name, title=todo_title,
+                          description=None, goal=goal.id, effort=None, due=None, tags=None)
+
+                continue_adding = questionary.confirm(
+                    "Add another todo?",
+                    default=True
+                ).ask()
+
+                if not continue_adding:
+                    break
+
+
+@cli.command("standup")
+@click.pass_context
+def standup_workflow(ctx):
+    """Interactive daily standup workflow"""
+
+    console.print(f"\n[bold cyan]📋 Daily Standup[/bold cyan]")
+    console.print(f"[dim]{datetime.now().strftime('%A, %B %d, %Y')}[/dim]\n")
+
+    # Show review first
+    ctx.invoke(review, project=None)
+
+    # Ask what they're working on
+    console.print("\n[bold cyan]What are you working on today?[/bold cyan]")
+
+    action = questionary.select(
+        "Choose an action:",
+        choices=[
+            {"name": "🚀 Start a todo", "value": "start"},
+            {"name": "✅ Complete a todo", "value": "complete"},
+            {"name": "📊 View metrics", "value": "metrics"},
+            {"name": "🔄 Sync git activity", "value": "sync"},
+            {"name": "❌ Skip", "value": "skip"},
+        ]
+    ).ask()
+
+    if action == "start":
+        ctx.invoke(start_workflow)
+    elif action == "complete":
+        # List in-progress todos
+        db_manager = ctx.obj["db"]
+        with db_manager.get_session() as session:
+            in_progress = session.query(Todo).filter_by(status="in_progress").all()
+
+            if not in_progress:
+                console.print("\n[yellow]No todos in progress[/yellow]")
+                return
+
+            todo_choices = [
+                {
+                    'name': f"#{t.id}: {t.title} ({t.project.name})",
+                    'value': t.id
+                }
+                for t in in_progress
+            ]
+
+            todo_id = questionary.select(
+                "Which todo did you complete?",
+                choices=todo_choices
+            ).ask()
+
+            if todo_id:
+                ctx.invoke(todo_complete, todo_id=todo_id)
+
+    elif action == "metrics":
+        db_manager = ctx.obj["db"]
+        with db_manager.get_session() as session:
+            projects = session.query(Project).filter_by(status="active").order_by(
+                Project.priority.desc()
+            ).limit(5).all()
+
+            project_choices = [
+                {'name': p.name, 'value': p.name}
+                for p in projects
+            ]
+
+            project_name = questionary.select(
+                "Which project?",
+                choices=project_choices
+            ).ask()
+
+            if project_name:
+                ctx.invoke(metrics, project_name=project_name, detailed=False)
+
+    elif action == "sync":
+        ctx.invoke(sync_and_prioritize, project_name=None)
+
+
+# ============================================================================
+# Export/Import Commands
+# ============================================================================
+
+@cli.command("export")
+@click.argument("project_name")
+@click.option("--output", type=click.Path(), help="Output file path")
+@click.pass_context
+def export_project(ctx, project_name: str, output: Optional[str]):
+    """Export project data to JSON"""
+
+    db_manager = ctx.obj["db"]
+    exporter = ExportImport()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        # Get all related data
+        goals = session.query(Goal).filter_by(project_id=project.id).all()
+        todos = session.query(Todo).filter_by(project_id=project.id).all()
+        commits = session.query(Commit).filter_by(project_id=project.id).all()
+
+        # Export
+        data = exporter.export_project(project, goals, todos, commits, session)
+
+        # Output
+        if output:
+            output_path = Path(output)
+            output_path.write_text(json.dumps(data, indent=2))
+            console.print(f"\n[bold green]✓[/bold green] Exported to: {output_path}")
+        else:
+            console.print("\n" + json.dumps(data, indent=2))
+
+        console.print(f"\n[dim]Exported {len(goals)} goals, {len(todos)} todos, {len(commits)} commits[/dim]")
+
+
+@cli.command("backup")
+@click.option("--output", type=click.Path(), help="Backup directory path")
+@click.pass_context
+def backup_all(ctx, output: Optional[str]):
+    """Backup all projects to JSON files"""
+
+    db_manager = ctx.obj["db"]
+
+    if not output:
+        output = str(Path.home() / ".pm" / "backups" / datetime.now().strftime("%Y%m%d_%H%M%S"))
+
+    output_dir = Path(output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with db_manager.get_session() as session:
+        projects = session.query(Project).all()
+
+        console.print(f"\n[bold cyan]Backing up {len(projects)} projects...[/bold cyan]")
+
+        for project in projects:
+            ctx.invoke(export_project, project_name=project.name,
+                      output=str(output_dir / f"{project.name}.json"))
+
+    console.print(f"\n[bold green]✓[/bold green] Backup complete: {output_dir}")
 
 
 def main():
