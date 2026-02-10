@@ -376,6 +376,139 @@ def project_show(ctx, name: str):
         console.print(panel)
 
 
+@project.command("delete")
+@click.argument("name")
+@click.option("--force", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def project_delete(ctx, name: str, force: bool):
+    """Remove a project from tracking (does not delete files)"""
+
+    db_manager = ctx.obj["db"]
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=name).first()
+
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{name}' not found")
+            return
+
+        # Count related data
+        goals_count = len(project.goals)
+        todos_count = len(project.todos)
+        commits_count = len(project.commits)
+
+        # Show what will be deleted
+        console.print(
+            f"\n[bold yellow]⚠ Warning:[/bold yellow] About to delete project: [bold]{name}[/bold]"
+        )
+        console.print(f"  Path: {project.path}")
+        console.print("  This will remove:")
+        console.print(f"    • {goals_count} goals")
+        console.print(f"    • {todos_count} todos")
+        console.print(f"    • {commits_count} commits")
+        console.print(
+            "\n[dim]Note: This only removes tracking data. Project files remain intact.[/dim]"
+        )
+
+        # Confirm deletion
+        if not force:
+            import questionary
+
+            confirm = questionary.confirm(
+                f"Are you sure you want to delete '{name}'?", default=False
+            ).ask()
+
+            if not confirm:
+                console.print("\n[yellow]Deletion cancelled.[/yellow]")
+                return
+
+        # Delete the project (CASCADE will handle related data)
+        session.delete(project)
+        session.commit()
+
+        console.print(f"\n[bold green]✓[/bold green] Deleted project: [bold]{name}[/bold]")
+        console.print(
+            f"  Removed {goals_count} goals, {todos_count} todos, {commits_count} commits"
+        )
+
+
+@project.command("clean")
+@click.option("--dry-run", is_flag=True, help="Show what would be deleted without deleting")
+@click.pass_context
+def project_clean(ctx, dry_run: bool):
+    """Remove projects whose folders no longer exist"""
+    from pathlib import Path
+
+    db_manager = ctx.obj["db"]
+
+    with db_manager.get_session() as session:
+        projects = session.query(Project).all()
+
+        # Find projects with missing folders
+        missing_projects = []
+        for project in projects:
+            project_path = Path(project.path)
+            if not project_path.exists():
+                missing_projects.append(
+                    {
+                        "name": project.name,
+                        "path": project.path,
+                        "goals": len(project.goals),
+                        "todos": len(project.todos),
+                        "commits": len(project.commits),
+                        "obj": project,
+                    }
+                )
+
+        if not missing_projects:
+            console.print("\n[bold green]✓[/bold green] All projects have valid paths")
+            return
+
+        # Show what will be deleted
+        console.print(
+            f"\n[bold yellow]Found {len(missing_projects)} projects with missing folders:[/bold yellow]\n"
+        )
+
+        for proj in missing_projects:
+            console.print(f"  [bold]{proj['name']}[/bold]")
+            console.print(f"    Path: {proj['path']} [red](not found)[/red]")
+            console.print(
+                f"    Data: {proj['goals']} goals, {proj['todos']} todos, {proj['commits']} commits"
+            )
+
+        if dry_run:
+            console.print(
+                "\n[dim]Dry run - nothing deleted. Run without --dry-run to delete.[/dim]"
+            )
+            return
+
+        # Confirm deletion
+        import questionary
+
+        confirm = questionary.confirm(
+            f"\nDelete these {len(missing_projects)} projects from tracking?", default=False
+        ).ask()
+
+        if not confirm:
+            console.print("\n[yellow]Cleanup cancelled.[/yellow]")
+            return
+
+        # Delete missing projects
+        total_goals = sum(p["goals"] for p in missing_projects)
+        total_todos = sum(p["todos"] for p in missing_projects)
+        total_commits = sum(p["commits"] for p in missing_projects)
+
+        for proj in missing_projects:
+            session.delete(proj["obj"])
+
+        session.commit()
+
+        console.print(f"\n[bold green]✓[/bold green] Cleaned up {len(missing_projects)} projects")
+        console.print(
+            f"  Removed {total_goals} goals, {total_todos} todos, {total_commits} commits"
+        )
+
+
 # Alias 'projects' to 'project list'
 @cli.command("projects")
 @click.option("--status", type=click.Choice(PROJECT_STATUSES), help="Filter by status")
