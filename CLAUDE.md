@@ -96,6 +96,25 @@ pm prioritize                         # Recalculate all priorities
 pm prioritize EarnScreen              # Recalculate for specific project
 ```
 
+#### Git Integration
+```bash
+pm sync EarnScreen                    # Sync commits for project
+pm sync --all                         # Sync all projects with git repos
+pm sync --limit 100                   # Limit commits per project
+
+pm commits EarnScreen                 # Show recent commits
+pm commits EarnScreen --limit 20      # Show more commits
+pm commits EarnScreen --author "Carlo" # Filter by author
+pm commits EarnScreen --since 2026-02-01 # Filter by date
+
+pm activity EarnScreen                # Show 30-day activity timeline
+pm activity EarnScreen --days 7       # Show last 7 days
+pm activity EarnScreen --since 2026-02-01 # Since specific date
+
+pm sync-and-prioritize                # Sync + recalculate (daily workflow)
+pm sync-and-prioritize EarnScreen     # For specific project
+```
+
 ## Architecture
 
 | Component | Technology | Purpose |
@@ -149,13 +168,17 @@ pm prioritize EarnScreen              # Recalculate for specific project
 - [ ] Interactive todo picker with questionary (deferred to Phase 5)
 - [ ] Activity logging for changes (deferred to Phase 4)
 
-### Phase 3: Git Integration
-- [ ] GitPython commit scanning
-- [ ] `pm sync` command for fetching commits
-- [ ] Commit message parsing for todo references (#T42)
-- [ ] Activity metrics calculation
-- [ ] `pm activity` and `pm commits` commands
-- [ ] Auto-linking commits to todos
+### Phase 3: Git Integration ✅ (Complete)
+- [x] GitPython commit scanning with GitScanner class
+- [x] `pm sync` command for fetching commits (single project or --all)
+- [x] Commit message parsing for todo references (#T42, #42, fixes #42, etc.)
+- [x] Activity metrics calculation (insertions, deletions, files changed)
+- [x] `pm activity` command with timeline visualization
+- [x] `pm commits` command with filtering by author and date
+- [x] Auto-linking commits to todos (bidirectional)
+- [x] Auto-completion of todos when commit has completion keywords
+- [x] Project last_activity_at tracking
+- [x] `pm sync-and-prioritize` workflow command
 
 ### Phase 4: Analytics & Dashboards
 - [ ] Metrics calculator with time-series tracking
@@ -250,6 +273,18 @@ Default config (~/.pm/config.json):
 - [x] `pm todos --blocked` - Shows blocked todos
 - [x] Priority scoring validates: effort (S>M>L>XL), deadlines (closer=higher), age (older=higher)
 - [x] 16 unit tests passing (models, utils, priority algorithm)
+
+✅ **Phase 3 Tests:**
+- [x] `pm sync EarnScreen` - Syncs 4 commits from git repository
+- [x] `pm commits EarnScreen` - Lists recent commits with stats and linked todos
+- [x] `pm activity EarnScreen --days 7` - Shows daily activity timeline
+- [x] `pm sync --all` - Syncs all projects (28 commits from 4 projects)
+- [x] Commit with `#T5` reference - Auto-links to todo #5
+- [x] Commit with `complete #5` - Auto-completes todo and sets completion timestamp
+- [x] `pm todo show 5` - Shows linked commits in todo details
+- [x] Todo references parsed: #T42, #42, fixes #42, closes #42, resolves #42, todo: #42
+- [x] Completion keywords work: fix, fixes, close, closes, resolve, resolves, complete, completes
+- [x] 13 new unit tests passing (git integration, commit parsing, stats)
 
 ## Next Steps
 

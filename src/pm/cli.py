@@ -11,7 +11,7 @@ from rich import box
 
 from . import __version__
 from .db import get_db_manager, init_database
-from .models import Project, Goal, Todo
+from .models import Project, Goal, Todo, Commit
 from .utils import (
     Config,
     format_datetime,
@@ -21,6 +21,8 @@ from .utils import (
     is_git_repo,
     validate_priority,
     validate_status,
+    get_relative_time,
+    truncate_string,
     PROJECT_STATUSES,
     GOAL_STATUSES,
     GOAL_CATEGORIES,
@@ -28,6 +30,7 @@ from .utils import (
     EFFORT_LEVELS,
 )
 from .priority import PriorityCalculator
+from .git_integration import GitScanner
 
 console = Console()
 
@@ -893,6 +896,14 @@ def todo_show(ctx, todo_id: int):
             return
 
         # Extract data
+        commit_shas = todo_obj.tags.get("commit_shas", []) if todo_obj.tags else []
+        commits = []
+        if commit_shas:
+            commits = session.query(Commit).filter(
+                Commit.project_id == todo_obj.project_id,
+                Commit.sha.in_(commit_shas)
+            ).order_by(Commit.committed_at.desc()).all()
+
         data = {
             "id": todo_obj.id,
             "title": todo_obj.title,
@@ -909,6 +920,7 @@ def todo_show(ctx, todo_id: int):
             "updated_at": todo_obj.updated_at,
             "started_at": todo_obj.started_at,
             "completed_at": todo_obj.completed_at,
+            "commits": [(c.sha[:7], c.message.split('\n')[0], c.committed_at) for c in commits],
         }
 
     # Create info panel
@@ -942,6 +954,11 @@ def todo_show(ctx, todo_id: int):
 
     if data['completed_at']:
         info += f"[bold]Completed:[/bold] {format_datetime(data['completed_at'])}\n"
+
+    if data['commits']:
+        info += f"\n[bold cyan]Linked Commits:[/bold cyan]\n"
+        for sha, message, commit_date in data['commits']:
+            info += f"  • {sha}: {truncate_string(message, 50)} ({get_relative_time(commit_date)})\n"
 
     if data['description']:
         info = f"{info}\n[bold]Description:[/bold]\n{data['description']}"
@@ -1106,6 +1123,260 @@ def prioritize(ctx, project_name: Optional[str]):
 
         scope = f"in {project_name}" if project_name else "across all projects"
         console.print(f"\n[bold green]✓[/bold green] Recalculated priorities for {count} todos {scope}")
+
+
+# ============================================================================
+# Git Integration Commands
+# ============================================================================
+
+@cli.command("sync")
+@click.argument("project_name", required=False)
+@click.option("--all", "sync_all", is_flag=True, help="Sync all projects with git repos")
+@click.option("--limit", type=int, help="Limit commits per project")
+@click.pass_context
+def sync(ctx, project_name: Optional[str], sync_all: bool, limit: Optional[int]):
+    """Sync git commits to database"""
+
+    db_manager = ctx.obj["db"]
+    scanner = GitScanner()
+
+    with db_manager.get_session() as session:
+        if sync_all or not project_name:
+            # Sync all projects
+            with console.status("[bold cyan]Syncing git commits...[/bold cyan]"):
+                results = scanner.sync_all_projects(session, limit_per_project=limit)
+
+            if not results:
+                console.print("\n[yellow]No new commits found[/yellow]")
+                return
+
+            # Display results
+            table = Table(
+                title="Git Sync Results",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+            )
+
+            table.add_column("Project", style="bold")
+            table.add_column("Commits Added", justify="center")
+            table.add_column("Todos Updated", justify="center")
+
+            total_commits = 0
+            total_todos = 0
+
+            for project_name, (commits_added, todos_updated) in results.items():
+                table.add_row(
+                    project_name,
+                    str(commits_added),
+                    str(todos_updated) if todos_updated > 0 else "-",
+                )
+                total_commits += commits_added
+                total_todos += todos_updated
+
+            console.print()
+            console.print(table)
+            console.print(f"\n[bold green]✓[/bold green] Synced {total_commits} commits, updated {total_todos} todos")
+
+        else:
+            # Sync specific project
+            project = session.query(Project).filter_by(name=project_name).first()
+            if not project:
+                console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+                return
+
+            if not project.has_git:
+                console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+                return
+
+            with console.status(f"[bold cyan]Syncing {project_name}...[/bold cyan]"):
+                commits_added, todos_updated = scanner.scan_project(project, session, limit)
+
+            console.print(f"\n[bold green]✓[/bold green] Synced [bold]{project_name}[/bold]")
+            console.print(f"  • Commits added: {commits_added}")
+            if todos_updated > 0:
+                console.print(f"  • Todos updated: {todos_updated}")
+
+
+@cli.command("activity")
+@click.argument("project_name")
+@click.option("--days", type=int, default=30, help="Number of days to show (default: 30)")
+@click.option("--since", help="Show activity since date (YYYY-MM-DD)")
+@click.pass_context
+def activity(ctx, project_name: str, days: int, since: Optional[str]):
+    """Show git activity timeline for a project"""
+
+    db_manager = ctx.obj["db"]
+    scanner = GitScanner()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        if not project.has_git:
+            console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+            return
+
+        # Parse since date
+        since_date = None
+        if since:
+            try:
+                since_date = parse_date(since)
+                from datetime import timedelta
+                days = (datetime.now().date() - since_date).days
+            except Exception as e:
+                console.print(f"\n[bold red]Error:[/bold red] Invalid date format: {e}")
+                return
+
+        # Get activity timeline
+        timeline = scanner.get_activity_timeline(project, session, days)
+
+        if not timeline:
+            console.print(f"\n[yellow]No activity found in the last {days} days[/yellow]")
+            return
+
+        # Get overall stats
+        stats = scanner.get_commit_stats(project, session, since=since_date)
+
+        # Display timeline
+        table = Table(
+            title=f"Activity Timeline - {project_name} (Last {days} days)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan",
+        )
+
+        table.add_column("Date")
+        table.add_column("Commits", justify="center")
+        table.add_column("Insertions", justify="right", style="green")
+        table.add_column("Deletions", justify="right", style="red")
+        table.add_column("Net Change", justify="right")
+
+        for day in timeline:
+            net_change = day["insertions"] - day["deletions"]
+            net_color = "green" if net_change > 0 else "red" if net_change < 0 else "white"
+
+            table.add_row(
+                str(day["date"]),
+                str(day["commits"]),
+                f"+{day['insertions']}",
+                f"-{day['deletions']}",
+                f"[{net_color}]{net_change:+d}[/{net_color}]",
+            )
+
+        console.print()
+        console.print(table)
+
+        # Display summary stats
+        console.print(f"\n[bold cyan]Summary:[/bold cyan]")
+        console.print(f"  • Total commits: {stats['total_commits']}")
+        console.print(f"  • Total insertions: [green]+{stats['total_insertions']}[/green]")
+        console.print(f"  • Total deletions: [red]-{stats['total_deletions']}[/red]")
+        console.print(f"  • Files changed: {stats['total_files_changed']}")
+        console.print(f"  • Unique authors: {stats['unique_authors']}")
+        console.print(f"  • Avg insertions/commit: {stats['avg_insertions']:.1f}")
+
+
+@cli.command("commits")
+@click.argument("project_name")
+@click.option("--limit", type=int, default=10, help="Number of commits to show (default: 10)")
+@click.option("--author", help="Filter by author")
+@click.option("--since", help="Show commits since date (YYYY-MM-DD)")
+@click.pass_context
+def commits(ctx, project_name: str, limit: int, author: Optional[str], since: Optional[str]):
+    """Show recent commits for a project"""
+
+    db_manager = ctx.obj["db"]
+    scanner = GitScanner()
+
+    with db_manager.get_session() as session:
+        project = session.query(Project).filter_by(name=project_name).first()
+        if not project:
+            console.print(f"\n[bold red]Error:[/bold red] Project '{project_name}' not found")
+            return
+
+        if not project.has_git:
+            console.print(f"\n[bold yellow]Warning:[/bold yellow] Project '{project_name}' is not a git repository")
+            return
+
+        # Parse since date
+        since_date = None
+        if since:
+            try:
+                since_date = datetime.combine(parse_date(since), datetime.min.time())
+            except Exception as e:
+                console.print(f"\n[bold red]Error:[/bold red] Invalid date format: {e}")
+                return
+
+        # Get recent commits
+        recent_commits = scanner.get_recent_commits(project, session, limit, author, since_date)
+
+        if not recent_commits:
+            console.print(f"\n[yellow]No commits found[/yellow]")
+            return
+
+        # Display commits
+        table = Table(
+            title=f"Recent Commits - {project_name}",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan",
+        )
+
+        table.add_column("SHA", style="dim", width=7)
+        table.add_column("Date")
+        table.add_column("Author", style="bold")
+        table.add_column("Message")
+        table.add_column("Changes", justify="right")
+        table.add_column("Todos", justify="center")
+
+        for commit in recent_commits:
+            # Extract todo IDs from tags
+            todo_ids = commit.tags.get("todo_ids", []) if commit.tags else []
+            todos_str = ", ".join(f"#{id}" for id in todo_ids) if todo_ids else "-"
+
+            # Truncate commit message (first line only)
+            message_first_line = commit.message.split('\n')[0]
+            message = truncate_string(message_first_line, 50)
+
+            # Author (name only, without email)
+            author_name = commit.author.split('<')[0].strip()
+
+            # Changes summary
+            changes = f"+{commit.insertions}/-{commit.deletions}"
+
+            # Relative time
+            time_ago = get_relative_time(commit.committed_at)
+
+            table.add_row(
+                commit.sha[:7],
+                time_ago,
+                author_name,
+                message,
+                changes,
+                todos_str,
+            )
+
+        console.print()
+        console.print(table)
+
+
+@cli.command("sync-and-prioritize")
+@click.argument("project_name", required=False)
+@click.pass_context
+def sync_and_prioritize(ctx, project_name: Optional[str]):
+    """Sync git commits and recalculate priorities (useful for daily workflow)"""
+
+    # Run sync
+    console.print("[bold cyan]Step 1:[/bold cyan] Syncing git commits...")
+    ctx.invoke(sync, project_name=project_name, sync_all=not project_name, limit=None)
+
+    console.print("\n[bold cyan]Step 2:[/bold cyan] Recalculating priorities...")
+    ctx.invoke(prioritize, project_name=project_name)
+
+    console.print("\n[bold green]✓[/bold green] Sync and prioritization complete!")
 
 
 def main():

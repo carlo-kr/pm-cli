@@ -91,13 +91,23 @@ pm prioritize                         # Recalculate all priorities
 pm prioritize PROJECT                 # Recalculate for specific project
 ```
 
-### Git Integration (Coming Soon)
+### Git Integration
 
 ```bash
-pm sync PROJECT                       # Sync git commits
-pm activity PROJECT                   # Show recent activity
-pm commits PROJECT --since "7 days ago"
+pm sync PROJECT                       # Sync git commits to database
+pm sync --all                         # Sync all projects
+pm commits PROJECT                    # Show recent commits
+pm commits PROJECT --author "Name"    # Filter by author
+pm commits PROJECT --since 2026-02-01 # Filter by date
+pm activity PROJECT                   # Show activity timeline
+pm activity PROJECT --days 7          # Last 7 days
+pm sync-and-prioritize                # Sync and recalc (daily workflow)
 ```
+
+**Commit Linking:**
+Reference todos in commit messages to auto-link:
+- `#T42` or `#42` - Links commit to todo
+- `fixes #42`, `closes #42`, `resolves #42`, `completes #42` - Links and auto-completes todo
 
 ### Analytics (Coming Soon)
 
@@ -146,11 +156,19 @@ python -c "from pm.db import get_db_manager; print(get_db_manager().backup_db())
 - ✅ Effort estimation and deadline tracking
 - ✅ 16 passing tests (100% coverage of core features)
 
-**Phase 3-6 (Coming Soon):**
-- Git integration and commit tracking
-- Analytics and metrics dashboards
-- CLAUDE.md parsing
-- Interactive workflows
+**Phase 3 (Complete):**
+- ✅ Git commit scanning with GitPython
+- ✅ Automatic commit-todo linking (#T42, fixes #42, etc.)
+- ✅ Auto-completion of todos from commit keywords
+- ✅ Activity timeline visualization
+- ✅ Commit statistics and metrics
+- ✅ Project activity tracking
+- ✅ 29 passing tests (13 new git integration tests)
+
+**Phase 4-6 (Coming Soon):**
+- Analytics dashboards and metrics
+- CLAUDE.md parsing and import
+- Interactive workflows and daily standup helpers
 
 ## Tech Stack
 
