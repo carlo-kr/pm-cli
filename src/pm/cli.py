@@ -936,6 +936,8 @@ def todo_add(
 @click.option("--goal", type=int, help="Filter by goal ID")
 @click.option("--next", "show_next", is_flag=True, help="Show top 5 by priority")
 @click.option("--blocked", is_flag=True, help="Show only blocked todos")
+@click.option("--tag", help="Filter by tag (e.g., 'urgent', 'bug')")
+@click.option("--today", is_flag=True, help="Show only today's planned todos")
 @click.pass_context
 def todo_list(
     ctx,
@@ -944,6 +946,8 @@ def todo_list(
     goal: Optional[int],
     show_next: bool,
     blocked: bool,
+    tag: Optional[str],
+    today: bool,
 ):
     """List todos (all projects or specific project)"""
 
@@ -970,6 +974,14 @@ def todo_list(
         # Filter by goal
         if goal:
             query = query.filter(Todo.goal_id == goal)
+
+        # Filter by tag
+        if tag:
+            query = query.filter(Todo.tags.contains(tag))
+
+        # Filter by today
+        if today:
+            query = query.filter(Todo.tags.contains("today"))
 
         # Filter by blocked
         if blocked:
@@ -1011,6 +1023,10 @@ def todo_list(
         title_suffix = " - Top Priority"
     elif blocked:
         title_suffix = " - Blocked"
+    elif today:
+        title_suffix = " - Today's Plan"
+    elif tag:
+        title_suffix = f" - #{tag}"
 
     table = Table(
         title=f"Todos ({len(todo_data)}){title_suffix}",
@@ -1292,6 +1308,8 @@ def todo_block(ctx, todo_id: int, blocked_by_id: int):
 @click.option("--goal", type=int, help="Filter by goal ID")
 @click.option("--next", "show_next", is_flag=True, help="Show top 5 by priority")
 @click.option("--blocked", is_flag=True, help="Show only blocked todos")
+@click.option("--tag", help="Filter by tag (e.g., 'urgent', 'bug')")
+@click.option("--today", is_flag=True, help="Show only today's planned todos")
 @click.pass_context
 def todos_alias(
     ctx,
@@ -1300,6 +1318,8 @@ def todos_alias(
     goal: Optional[int],
     show_next: bool,
     blocked: bool,
+    tag: Optional[str],
+    today: bool,
 ):
     """List todos (alias for 'todo list')"""
     ctx.invoke(
@@ -1309,6 +1329,8 @@ def todos_alias(
         goal=goal,
         show_next=show_next,
         blocked=blocked,
+        tag=tag,
+        today=today,
     )
 
 
@@ -2387,6 +2409,162 @@ def standup_workflow(ctx):
 
     elif action == "sync":
         ctx.invoke(sync_and_prioritize, project_name=None)
+
+
+@cli.command("plan-day")
+@click.pass_context
+def plan_day_workflow(ctx):
+    """Interactive daily planning workflow"""
+
+    console.print("\n[bold cyan]📅 Plan Your Day[/bold cyan]")
+    console.print(f"[dim]{datetime.now().strftime('%A, %B %d, %Y')}[/dim]\n")
+
+    db_manager = ctx.obj["db"]
+
+    # Step 1: Show yesterday's progress
+    console.print("[bold]Yesterday's Progress:[/bold]")
+
+    with db_manager.get_session() as session:
+        # Get todos completed yesterday
+        yesterday = datetime.now().date() - timedelta(days=1)
+        completed_yesterday = (
+            session.query(Todo)
+            .filter(Todo.completed_at >= datetime.combine(yesterday, datetime.min.time()))
+            .filter(
+                Todo.completed_at < datetime.combine(datetime.now().date(), datetime.min.time())
+            )
+            .all()
+        )
+
+        if completed_yesterday:
+            for todo in completed_yesterday:
+                console.print(f"  ✓ {todo.title} ({todo.project.name})")
+            console.print(f"\n[green]{len(completed_yesterday)} todos completed![/green]")
+        else:
+            console.print("  [dim]No todos completed yesterday[/dim]")
+
+    # Step 2: Clear old "today" tags
+    console.print("\n[dim]Clearing previous day's plan...[/dim]")
+
+    with db_manager.get_session() as session:
+        old_today_todos = session.query(Todo).filter(Todo.tags.contains("today")).all()
+
+        for todo in old_today_todos:
+            if todo.tags and "today" in todo.tags:
+                tags_dict = todo.tags if isinstance(todo.tags, dict) else {}
+                if "today" in tags_dict:
+                    del tags_dict["today"]
+                    todo.tags = tags_dict
+
+        session.commit()
+
+    # Step 3: Show top priorities
+    console.print("\n[bold]Top Priorities:[/bold]")
+
+    with db_manager.get_session() as session:
+        top_todos = (
+            session.query(Todo)
+            .filter(Todo.status.in_(["open", "in_progress"]))
+            .order_by(Todo.priority_score.desc())
+            .limit(15)
+            .all()
+        )
+
+        if not top_todos:
+            console.print("[yellow]No open todos found.[/yellow]")
+            return
+
+        # Show top priorities
+        for i, todo in enumerate(top_todos[:10], 1):
+            status_icon = "🔵" if todo.status == "in_progress" else "⚪"
+            effort = todo.effort_estimate or "?"
+            console.print(
+                f"  {i:2}. {status_icon} {todo.title[:50]} "
+                f"[dim]({todo.project.name}, {effort}, {todo.priority_score:.1f})[/dim]"
+            )
+
+    # Step 4: Let user select todos for today
+    console.print("\n[bold cyan]Select 3-5 todos for today:[/bold cyan]")
+    console.print("[dim](Use space to select, enter to confirm)[/dim]\n")
+
+    with db_manager.get_session() as session:
+        top_todos = (
+            session.query(Todo)
+            .filter(Todo.status.in_(["open", "in_progress"]))
+            .order_by(Todo.priority_score.desc())
+            .limit(15)
+            .all()
+        )
+
+        choices = [
+            {
+                "name": f"#{t.id}: {t.title[:60]} ({t.project.name}, {t.effort_estimate or '?'}, priority: {t.priority_score:.1f})",
+                "value": t.id,
+            }
+            for t in top_todos
+        ]
+
+        selected_ids = questionary.checkbox("Select todos for today:", choices=choices).ask()
+
+        if not selected_ids:
+            console.print("\n[yellow]No todos selected. Planning cancelled.[/yellow]")
+            return
+
+        if len(selected_ids) > 7:
+            console.print(
+                f"\n[yellow]⚠ Warning: You selected {len(selected_ids)} todos. "
+                "Consider limiting to 3-5 for a realistic daily plan.[/yellow]"
+            )
+
+        # Tag selected todos with "today"
+        for todo_id in selected_ids:
+            todo = session.query(Todo).filter_by(id=todo_id).first()
+            if todo:
+                tags_dict = todo.tags if isinstance(todo.tags, dict) else {}
+                tags_dict["today"] = True
+                todo.tags = tags_dict
+
+        session.commit()
+
+    # Step 5: Show daily plan
+    console.print("\n[bold green]✓ Your Plan for Today:[/bold green]\n")
+
+    with db_manager.get_session() as session:
+        today_todos = (
+            session.query(Todo)
+            .filter(Todo.tags.contains("today"))
+            .order_by(Todo.priority_score.desc())
+            .all()
+        )
+
+        total_effort = {"S": 0, "M": 0, "L": 0, "XL": 0}
+
+        for i, todo in enumerate(today_todos, 1):
+            status_icon = "🔵" if todo.status == "in_progress" else "⚪"
+            effort = todo.effort_estimate or "?"
+            if effort in total_effort:
+                total_effort[effort] += 1
+
+            console.print(f"  {i}. {status_icon} {todo.title}")
+            console.print(
+                f"     [dim]{todo.project.name} • {effort} effort • Priority: {todo.priority_score:.1f}[/dim]"
+            )
+
+        # Show effort summary
+        effort_parts = [f"{count}{size}" for size, count in total_effort.items() if count > 0]
+        if effort_parts:
+            console.print(f"\n[dim]Effort breakdown: {', '.join(effort_parts)}[/dim]")
+
+        console.print(f"\n[bold]Total: {len(today_todos)} todos[/bold]")
+
+    # Step 6: Ask if they want to start now
+    console.print()
+    start_now = questionary.confirm("Start working on the first todo now?", default=True).ask()
+
+    if start_now:
+        ctx.invoke(start_workflow)
+    else:
+        console.print("\n[green]Plan set! Use 'pm todos --today' to see your plan anytime.[/green]")
 
 
 # ============================================================================
