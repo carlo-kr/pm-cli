@@ -2638,6 +2638,115 @@ def backup_all(ctx, output: Optional[str]):
     console.print(f"\n[bold green]✓[/bold green] Backup complete: {output_dir}")
 
 
+# ============================================================================
+# Cheatsheet Command
+# ============================================================================
+
+
+@cli.command("cheatsheet")
+@click.option("--workflow", is_flag=True, help="Show workflow-focused commands only")
+def cheatsheet(workflow: bool):
+    """Show quick reference of common PM commands"""
+
+    console.print("\n[bold cyan]📚 PM CLI Cheatsheet[/bold cyan]\n")
+
+    if workflow:
+        # Workflow-focused cheatsheet
+        console.print("[bold]🌅 Morning Planning[/bold]")
+        morning = Table(show_header=False, box=None, padding=(0, 2))
+        morning.add_row("[cyan]pm standup[/cyan]", "Daily overview with top priorities")
+        morning.add_row("[cyan]pm plan-day[/cyan]", "Interactive planning (select 3-5 todos)")
+        morning.add_row("[cyan]pm todos --today[/cyan]", "See today's plan")
+        morning.add_row("[cyan]pm start[/cyan]", "Begin first task")
+        console.print(morning)
+
+        console.print("\n[bold]☀️  During the Day[/bold]")
+        day = Table(show_header=False, box=None, padding=(0, 2))
+        day.add_row("[cyan]pm start[/cyan]", "Pick next priority task")
+        day.add_row("[cyan]pm todo complete 15[/cyan]", "Mark todo as done")
+        day.add_row("[cyan]pm todos --today[/cyan]", "Check today's status")
+        day.add_row("[cyan]pm todos --next[/cyan]", "See all top priorities")
+        day.add_row("[cyan]pm todo block 18 --by 19[/cyan]", "Mark todo as blocked")
+        console.print(day)
+
+        console.print("\n[bold]🌙 Evening Reflection[/bold]")
+        evening = Table(show_header=False, box=None, padding=(0, 2))
+        evening.add_row("[cyan]pm sync --all[/cyan]", "Sync today's commits")
+        evening.add_row("[cyan]pm review[/cyan]", "See accomplishments")
+        evening.add_row("[cyan]pm metrics <project>[/cyan]", "Check project health")
+        evening.add_row("[cyan]pm todos --next[/cyan]", "Preview tomorrow")
+        console.print(evening)
+
+        console.print(
+            "\n[dim]💡 Tip: Reference todos in commits: git commit -m \"feat: add feature (#15)\"[/dim]"
+        )
+
+    else:
+        # Full cheatsheet
+        console.print("[bold]🚀 Getting Started[/bold]")
+        start = Table(show_header=False, box=None, padding=(0, 2))
+        start.add_row("[cyan]pm init[/cyan]", "Initialize PM and scan workspace")
+        start.add_row("[cyan]pm projects[/cyan]", "List all projects")
+        start.add_row("[cyan]pm project show <name>[/cyan]", "View project details")
+        console.print(start)
+
+        console.print("\n[bold]🎯 Goals & Todos[/bold]")
+        goals = Table(show_header=False, box=None, padding=(0, 2))
+        goals.add_row("[cyan]pm goals[/cyan]", "List all goals")
+        goals.add_row(
+            "[cyan]pm goal add <proj> \"Goal\"[/cyan]", "Create goal (add --priority 90)"
+        )
+        goals.add_row("[cyan]pm todos[/cyan]", "List open todos")
+        goals.add_row("[cyan]pm todos --next[/cyan]", "Top 5 priorities")
+        goals.add_row("[cyan]pm todo add <proj> \"Task\"[/cyan]", "Create todo")
+        goals.add_row("[cyan]pm todo start 15[/cyan]", "Mark as in_progress")
+        goals.add_row("[cyan]pm todo complete 15[/cyan]", "Mark as done")
+        console.print(goals)
+
+        console.print("\n[bold]📊 Analytics[/bold]")
+        analytics = Table(show_header=False, box=None, padding=(0, 2))
+        analytics.add_row("[cyan]pm metrics <project>[/cyan]", "Show health dashboard")
+        analytics.add_row("[cyan]pm review[/cyan]", "Daily standup view")
+        analytics.add_row("[cyan]pm activity <project>[/cyan]", "Show commit timeline")
+        console.print(analytics)
+
+        console.print("\n[bold]🔄 Git Integration[/bold]")
+        git = Table(show_header=False, box=None, padding=(0, 2))
+        git.add_row("[cyan]pm sync <project>[/cyan]", "Sync commits from git")
+        git.add_row("[cyan]pm sync --all[/cyan]", "Sync all projects")
+        git.add_row("[cyan]pm commits <project>[/cyan]", "Show recent commits")
+        console.print(git)
+
+        console.print("\n[bold]🎨 Workflow Commands[/bold]")
+        workflow_cmds = Table(show_header=False, box=None, padding=(0, 2))
+        workflow_cmds.add_row("[cyan]pm standup[/cyan]", "Daily standup overview")
+        workflow_cmds.add_row("[cyan]pm plan-day[/cyan]", "Interactive daily planning")
+        workflow_cmds.add_row("[cyan]pm start[/cyan]", "Pick & start next task")
+        workflow_cmds.add_row("[cyan]pm prioritize[/cyan]", "Recalculate priorities")
+        console.print(workflow_cmds)
+
+        console.print("\n[bold]🛠️  Useful Options[/bold]")
+        options = Table(show_header=False, box=None, padding=(0, 2))
+        options.add_row("[cyan]pm todos --today[/cyan]", "Filter by 'today' tag")
+        options.add_row("[cyan]pm todos --tag urgent[/cyan]", "Filter by any tag")
+        options.add_row("[cyan]pm todos --blocked[/cyan]", "Show blocked todos")
+        options.add_row(
+            "[cyan]pm metrics <proj> --detailed[/cyan]", "Show velocity trends"
+        )
+        console.print(options)
+
+        console.print("\n[dim]💡 Pro Tips:[/dim]")
+        console.print(
+            "[dim]  • Use 'pm cheatsheet --workflow' for daily workflow commands[/dim]"
+        )
+        console.print(
+            "[dim]  • Reference todos in commits: git commit -m \"feat: add feature (#15)\"[/dim]"
+        )
+        console.print("[dim]  • Use 'pm <command> --help' for detailed help[/dim]")
+
+    console.print()
+
+
 def main():
     """Entry point for the CLI"""
     cli(obj={})
